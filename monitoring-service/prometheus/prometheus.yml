@@ -1,0 +1,93 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: ml-platform
+    replica: '{{.ExternalURL}}'
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Data Service
+  - job_name: 'data-service'
+    static_configs:
+      - targets: ['data-service:8000']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Feature Service
+  - job_name: 'feature-service'
+    static_configs:
+      - targets: ['feature-service:8000']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Training Service
+  - job_name: 'training-service'
+    static_configs:
+      - targets: ['training-service:8000']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Model Registry
+  - job_name: 'model-registry'
+    static_configs:
+      - targets: ['model-registry:8000']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Inference API
+  - job_name: 'inference-api'
+    static_configs:
+      - targets: ['inference-api:8000']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Monitoring Service
+  - job_name: 'monitoring-service'
+    static_configs:
+      - targets: ['monitoring-service:8000']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # MLflow
+  - job_name: 'mlflow'
+    static_configs:
+      - targets: ['mlflow:5000']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # PostgreSQL Exporter
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+
+  # MongoDB Exporter
+  - job_name: 'mongodb'
+    static_configs:
+      - targets: ['mongodb-exporter:9216']
+    scrape_interval: 30s
+
+  # Redis Exporter
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+
+  # Node Exporter (system metrics)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s

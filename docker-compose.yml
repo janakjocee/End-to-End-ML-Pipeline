@@ -1,0 +1,422 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # Infrastructure Services
+  # ============================================
+  
+  postgres:
+    image: postgres:15-alpine
+    container_name: mlplatform-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mlplatform}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mlplatform_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-mlplatform}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./config/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlplatform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mlplatform-network
+
+  mongodb:
+    image: mongo:6-jammy
+    container_name: mlplatform-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-mlplatform}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-mlplatform_secret}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-prediction_logs}
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mlplatform-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: mlplatform-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mlplatform-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: mlplatform-minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mlplatform-network
+
+  # ============================================
+  # MLflow Tracking Server
+  # ============================================
+  
+  mlflow:
+    build:
+      context: .
+      dockerfile: model-registry/Dockerfile
+    container_name: mlplatform-mlflow
+    environment:
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://localhost:5000}
+      MLFLOW_ARTIFACT_ROOT: ${MLFLOW_ARTIFACT_ROOT:-s3://mlflow-artifacts}
+      AWS_ACCESS_KEY_ID: ${MINIO_USER:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_PASSWORD:-minioadmin}
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./model-registry:/app
+      - mlflow_data:/mlflow
+    networks:
+      - mlplatform-network
+    command: >
+      mlflow server
+      --backend-store-uri postgresql://${POSTGRES_USER:-mlplatform}:${POSTGRES_PASSWORD:-mlplatform_secret}@postgres:5432/${POSTGRES_DB:-mlplatform}
+      --default-artifact-root s3://mlflow-artifacts
+      --host 0.0.0.0
+      --port 5000
+
+  # ============================================
+  # Apache Airflow
+  # ============================================
+  
+  airflow-db:
+    image: postgres:15-alpine
+    container_name: mlplatform-airflow-db
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_db_data:/var/lib/postgresql/data
+    networks:
+      - mlplatform-network
+
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: retraining-orchestrator/Dockerfile
+    container_name: mlplatform-airflow-webserver
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db/airflow
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:-}
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      - ./retraining-orchestrator/dags:/opt/airflow/dags
+      - ./shared:/opt/airflow/shared
+      - airflow_logs:/opt/airflow/logs
+    ports:
+      - "8080:8080"
+    depends_on:
+      - airflow-db
+      - mlflow
+    command: >
+      bash -c "
+        airflow db init &&
+        airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true &&
+        airflow webserver
+      "
+    networks:
+      - mlplatform-network
+
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: retraining-orchestrator/Dockerfile
+    container_name: mlplatform-airflow-scheduler
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db/airflow
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:-}
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      - ./retraining-orchestrator/dags:/opt/airflow/dags
+      - ./shared:/opt/airflow/shared
+      - airflow_logs:/opt/airflow/logs
+    depends_on:
+      - airflow-db
+      - airflow-webserver
+    command: airflow scheduler
+    networks:
+      - mlplatform-network
+
+  # ============================================
+  # Monitoring Stack
+  # ============================================
+  
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mlplatform-prometheus
+    volumes:
+      - ./monitoring-service/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - mlplatform-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mlplatform-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    volumes:
+      - ./monitoring-service/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring-service/grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - mlplatform-network
+
+  # ============================================
+  # ML Platform Microservices
+  # ============================================
+  
+  data-service:
+    build:
+      context: .
+      dockerfile: data-service/Dockerfile
+    container_name: mlplatform-data-service
+    environment:
+      SERVICE_NAME: data-service
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mlplatform}:${POSTGRES_PASSWORD:-mlplatform_secret}@postgres:5432/${POSTGRES_DB:-mlplatform}
+      MONGO_URL: mongodb://${MONGO_USER:-mlplatform}:${MONGO_PASSWORD:-mlplatform_secret}@mongodb:27017
+      REDIS_URL: redis://redis:6379/0
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_PASSWORD:-minioadmin}
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "8001:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./data-service:/app
+      - ./shared:/app/shared
+      - ./datasets:/app/datasets
+    networks:
+      - mlplatform-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  feature-service:
+    build:
+      context: .
+      dockerfile: feature-service/Dockerfile
+    container_name: mlplatform-feature-service
+    environment:
+      SERVICE_NAME: feature-service
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mlplatform}:${POSTGRES_PASSWORD:-mlplatform_secret}@postgres:5432/${POSTGRES_DB:-mlplatform}
+      REDIS_URL: redis://redis:6379/0
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_PASSWORD:-minioadmin}
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "8002:8000"
+    depends_on:
+      - data-service
+      - redis
+    volumes:
+      - ./feature-service:/app
+      - ./shared:/app/shared
+    networks:
+      - mlplatform-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  training-service:
+    build:
+      context: .
+      dockerfile: training-service/Dockerfile
+    container_name: mlplatform-training-service
+    environment:
+      SERVICE_NAME: training-service
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mlplatform}:${POSTGRES_PASSWORD:-mlplatform_secret}@postgres:5432/${POSTGRES_DB:-mlplatform}
+      REDIS_URL: redis://redis:6379/0
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_PASSWORD:-minioadmin}
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "8003:8000"
+    depends_on:
+      - feature-service
+      - mlflow
+    volumes:
+      - ./training-service:/app
+      - ./shared:/app/shared
+      - model_artifacts:/app/artifacts
+    networks:
+      - mlplatform-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  inference-api:
+    build:
+      context: .
+      dockerfile: inference-api/Dockerfile
+    container_name: mlplatform-inference-api
+    environment:
+      SERVICE_NAME: inference-api
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mlplatform}:${POSTGRES_PASSWORD:-mlplatform_secret}@postgres:5432/${POSTGRES_DB:-mlplatform}
+      MONGO_URL: mongodb://${MONGO_USER:-mlplatform}:${MONGO_PASSWORD:-mlplatform_secret}@mongodb:27017
+      REDIS_URL: redis://redis:6379/0
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MODEL_NAME: ${MODEL_NAME:-churn-predictor}
+      MODEL_STAGE: ${MODEL_STAGE:-Production}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - training-service
+      - mongodb
+      - redis
+    volumes:
+      - ./inference-api:/app
+      - ./shared:/app/shared
+    networks:
+      - mlplatform-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+
+  monitoring-service:
+    build:
+      context: .
+      dockerfile: monitoring-service/Dockerfile
+    container_name: mlplatform-monitoring-service
+    environment:
+      SERVICE_NAME: monitoring-service
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mlplatform}:${POSTGRES_PASSWORD:-mlplatform_secret}@postgres:5432/${POSTGRES_DB:-mlplatform}
+      MONGO_URL: mongodb://${MONGO_USER:-mlplatform}:${MONGO_PASSWORD:-mlplatform_secret}@mongodb:27017
+      REDIS_URL: redis://redis:6379/0
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      INFERENCE_API_URL: http://inference-api:8000
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+    ports:
+      - "8004:8000"
+    depends_on:
+      - inference-api
+      - prometheus
+    volumes:
+      - ./monitoring-service:/app
+      - ./shared:/app/shared
+    networks:
+      - mlplatform-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================
+  # Nginx Load Balancer
+  # ============================================
+  
+  nginx:
+    image: nginx:alpine
+    container_name: mlplatform-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./config/nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - inference-api
+      - monitoring-service
+    networks:
+      - mlplatform-network
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+  minio_data:
+  mlflow_data:
+  airflow_db_data:
+  airflow_logs:
+  prometheus_data:
+  grafana_data:
+  model_artifacts:
+
+networks:
+  mlplatform-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

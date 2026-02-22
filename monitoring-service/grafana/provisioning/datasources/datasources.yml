@@ -1,0 +1,31 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+
+  - name: PostgreSQL
+    type: postgres
+    url: postgres:5432
+    database: mlplatform
+    user: mlplatform
+    secureJsonData:
+      password: mlplatform_secret
+    jsonData:
+      sslmode: disable
+      maxOpenConns: 100
+      maxIdleConns: 100
+      maxIdleConnsAuto: true
+      connMaxLifetime: 14400
+      postgresVersion: 1500
+      timescaledb: false
+
+  - name: MongoDB
+    type: grafana-mongodb-datasource
+    url: mongodb:27017
+    jsonData:
+      mongodb_url: mongodb://mlplatform:mlplatform_secret@mongodb:27017/prediction_logs
