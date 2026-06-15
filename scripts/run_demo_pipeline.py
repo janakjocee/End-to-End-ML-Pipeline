@@ -104,7 +104,48 @@ def render_summary(metrics: dict, model: Pipeline, test_data: pd.DataFrame, outp
     plt.close(figure)
 
 
-def run_pipeline(samples: int, output_dir: Path, screenshot_path: Path) -> dict:
+def render_drift_summary(reference: pd.DataFrame, drift: pd.DataFrame, output_path: Path) -> None:
+    """Render the main distribution shifts introduced by the generator."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    figure, axes = plt.subplots(1, 3, figsize=(13, 4.5))
+    axes[0].hist(reference["monthly_charges"], bins=25, alpha=0.7, label="reference")
+    axes[0].hist(drift["monthly_charges"], bins=25, alpha=0.7, label="drift")
+    axes[0].set_title("Monthly charges")
+    axes[0].set_xlabel("Charge")
+    axes[0].legend()
+
+    contract_order = ["Month-to-month", "One year", "Two year"]
+    contract_rates = pd.DataFrame(
+        {
+            "reference": reference["contract"].value_counts(normalize=True),
+            "drift": drift["contract"].value_counts(normalize=True),
+        }
+    ).reindex(contract_order)
+    contract_rates.plot.bar(ax=axes[1], color=["#2563eb", "#ea580c"])
+    axes[1].set_title("Contract distribution")
+    axes[1].set_ylabel("Share")
+    axes[1].tick_params(axis="x", rotation=25)
+
+    axes[2].bar(
+        ["reference", "drift"],
+        [reference["churn"].mean(), drift["churn"].mean()],
+        color=["#2563eb", "#ea580c"],
+    )
+    axes[2].set_ylim(0, 0.5)
+    axes[2].set_title("Churn rate")
+    axes[2].set_ylabel("Share")
+    figure.suptitle("Generated Drift Scenario", fontsize=15, fontweight="bold")
+    figure.tight_layout()
+    figure.savefig(output_path, dpi=160, bbox_inches="tight")
+    plt.close(figure)
+
+
+def run_pipeline(
+    samples: int,
+    output_dir: Path,
+    screenshot_path: Path,
+    drift_screenshot_path: Path = Path("docs/assets/data-drift-comparison.png"),
+) -> dict:
     """Generate data, train, evaluate, and persist artifacts."""
     started = perf_counter()
     data = generate_churn_dataset(n_samples=samples, random_state=42)
@@ -133,6 +174,7 @@ def run_pipeline(samples: int, output_dir: Path, screenshot_path: Path) -> dict:
     with (output_dir / "metrics.json").open("w", encoding="utf-8") as file:
         json.dump(metrics, file, indent=2)
     render_summary(metrics, model, test_data, screenshot_path)
+    render_drift_summary(data, drift_data, drift_screenshot_path)
     return metrics
 
 
@@ -145,8 +187,13 @@ def main() -> None:
         type=Path,
         default=Path("docs/assets/demo-pipeline-results.png"),
     )
+    parser.add_argument(
+        "--drift-screenshot",
+        type=Path,
+        default=Path("docs/assets/data-drift-comparison.png"),
+    )
     args = parser.parse_args()
-    metrics = run_pipeline(args.samples, args.output_dir, args.screenshot)
+    metrics = run_pipeline(args.samples, args.output_dir, args.screenshot, args.drift_screenshot)
     print(json.dumps(metrics, indent=2))
 
 

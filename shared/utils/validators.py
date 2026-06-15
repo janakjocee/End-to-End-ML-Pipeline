@@ -108,11 +108,11 @@ class DataValidator:
         
         # Check nullability
         if not schema.nullable and series.isnull().any():
-            errors.append(f"Column contains null values but is not nullable")
+            errors.append("Column contains null values but is not nullable")
             
         # Check uniqueness
         if schema.unique and series.nunique() != len(series):
-            errors.append(f"Column contains duplicate values but should be unique")
+            errors.append("Column contains duplicate values but should be unique")
             
         # Check data type
         if schema.dtype == DataType.NUMERIC:
@@ -161,7 +161,7 @@ class DataValidator:
         
         for col, stats in expected_stats.items():
             if col not in df.columns:
-                errors[col] = [f"Column not found"]
+                errors[col] = ["Column not found"]
                 continue
                 
             col_errors = []

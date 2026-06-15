@@ -8,14 +8,11 @@ Uses Evidently AI for data drift, concept drift, and performance monitoring.
 
 import os
 import uuid
-import json
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
-from enum import Enum
 
 import pandas as pd
-import numpy as np
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -23,16 +20,12 @@ from pydantic import BaseModel, Field
 # Evidently imports
 from evidently import ColumnMapping
 from evidently.report import Report
-from evidently.metric_preset import DataDriftPreset, TargetDriftPreset, ClassificationPreset
-from evidently.metrics import *
-from evidently.test_suite import TestSuite
-from evidently.tests import *
+from evidently.metric_preset import DataDriftPreset, TargetDriftPreset
 
 from shared.utils.logger import get_logger, StructuredLog
 from shared.utils.database import DatabaseManager, MongoManager
 from shared.utils.storage import StorageManager
 from shared.models.schemas import HealthCheckResponse, DriftReport, DriftType
-from shared.exceptions import DriftDetectionError
 
 logger = get_logger("monitoring-service")
 
@@ -185,10 +178,6 @@ def detect_prediction_drift(
     current_predictions: pd.Series
 ) -> Dict[str, Any]:
     """Detect prediction distribution drift."""
-    # Create comparison dataframe
-    reference_df = pd.DataFrame({'prediction': reference_predictions})
-    current_df = pd.DataFrame({'prediction': current_predictions})
-    
     # Use Kolmogorov-Smirnov test for numerical predictions
     # or Chi-square for categorical
     from scipy import stats

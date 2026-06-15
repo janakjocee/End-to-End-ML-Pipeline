@@ -9,19 +9,16 @@ Supports single and batch predictions with SHAP explanations.
 import os
 import uuid
 import json
-import pickle
 import hashlib
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from datetime import datetime
 from contextlib import asynccontextmanager
 
 import pandas as pd
-import numpy as np
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Depends
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, Field
+from fastapi.security import HTTPBearer
 import mlflow
 from mlflow.tracking import MlflowClient
 import shap
@@ -31,16 +28,15 @@ from slowapi.errors import RateLimitExceeded
 
 from shared.utils.logger import get_logger, StructuredLog
 from shared.utils.database import DatabaseManager, MongoManager, CacheManager
-from shared.utils.metrics import MetricsCollector, track_predictions
+from shared.utils.metrics import MetricsCollector
 from shared.models.schemas import (
     HealthCheckResponse,
     PredictionRequest,
     PredictionResponse,
     BatchPredictionRequest,
-    BatchPredictionResponse,
-    ModelExplanation
+    BatchPredictionResponse
 )
-from shared.exceptions import InferenceError, ModelNotFoundError, RateLimitError
+from shared.exceptions import ModelNotFoundError
 
 logger = get_logger("inference-api")
 
@@ -427,11 +423,6 @@ async def batch_predict(
         
         for i, record in enumerate(batch_request.records):
             try:
-                pred_request = PredictionRequest(
-                    features=record,
-                    return_explanation=batch_request.return_explanations
-                )
-                
                 # Process individual prediction
                 features_df = preprocess_features(record)
                 

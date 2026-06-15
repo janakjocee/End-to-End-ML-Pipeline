@@ -10,17 +10,16 @@ import os
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 from contextlib import asynccontextmanager
-from enum import Enum
 
 import mlflow
 from mlflow.tracking import MlflowClient
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from shared.utils.logger import get_logger
 from shared.utils.database import DatabaseManager
-from shared.models.schemas import HealthCheckResponse, ModelMetadata, ModelStage
+from shared.models.schemas import HealthCheckResponse, ModelStage
 from shared.exceptions import ModelNotFoundError
 
 logger = get_logger("model-registry")
@@ -462,7 +461,6 @@ async def compare_models(
 async def download_artifact(run_id: str, artifact_path: str = "model"):
     """Download model artifact."""
     try:
-        import tempfile
         
         client = get_mlflow_client()
         

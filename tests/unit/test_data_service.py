@@ -5,8 +5,7 @@ Unit Tests for Data Service
 
 import pytest
 import pandas as pd
-import numpy as np
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 
 from shared.utils.validators import DataValidator, ColumnSchema, DataType
 from shared.utils.database import DatabaseManager

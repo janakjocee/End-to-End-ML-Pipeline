@@ -13,8 +13,7 @@ from datetime import datetime
 from contextlib import contextmanager
 
 import psutil
-import numpy as np
-from prometheus_client import Counter, Histogram, Gauge, Info, start_http_server
+from prometheus_client import Counter, Histogram, Gauge, Info
 
 from shared.utils.logger import get_logger
 
@@ -195,7 +194,7 @@ def timing_decorator(metric_name: str):
                 result = func(*args, **kwargs)
                 status = 'success'
                 return result
-            except Exception as e:
+            except Exception:
                 status = 'error'
                 raise
             finally:
@@ -213,7 +212,6 @@ def track_predictions(model_name: str, model_version: str):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             start = time.time()
-            prediction_id = kwargs.get('prediction_id', 'unknown')
             
             try:
                 result = func(*args, **kwargs)
