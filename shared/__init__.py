@@ -9,9 +9,8 @@ __version__ = "2.0.0"
 __author__ = "ML Platform Team"
 
 from shared.utils.logger import get_logger
-from shared.utils.database import DatabaseManager
+from shared.utils.database import CacheManager, DatabaseManager
 from shared.utils.storage import StorageManager
-from shared.utils.cache import CacheManager
 from shared.models.schemas import (
     PredictionRequest,
     PredictionResponse,

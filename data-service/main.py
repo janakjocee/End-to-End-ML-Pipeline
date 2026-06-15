@@ -88,7 +88,7 @@ app.add_middleware(
 
 class DataSourceConfig(BaseModel):
     """Data source configuration."""
-    source_type: str = Field(..., regex="^(csv|database|api|parquet)$")
+    source_type: str = Field(..., pattern="^(csv|database|api|parquet)$")
     source_path: str
     connection_string: Optional[str] = None
     query: Optional[str] = None

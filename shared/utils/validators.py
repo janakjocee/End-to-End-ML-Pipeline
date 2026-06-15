@@ -225,7 +225,16 @@ class DataValidator:
             'schema_errors': schema_errors,
             'missing_values': df.isnull().sum().to_dict(),
             'duplicate_rows': df.duplicated().sum(),
-            'memory_usage_mb': df.memory_usage(deep=True).sum() / 1024 / 1024
+            'memory_usage_mb': df.memory_usage(deep=True).sum() / 1024 / 1024,
+            'statistics': [
+                {
+                    'feature_name': column,
+                    'dtype': str(df[column].dtype),
+                    'null_count': int(df[column].isnull().sum()),
+                    'unique_count': int(df[column].nunique()),
+                }
+                for column in df.columns
+            ],
         }
         
         return report
@@ -296,11 +305,11 @@ class ChurnPredictionFeatures(BaseModel):
     tenure: int = Field(..., ge=0, le=100, description="Months as customer")
     monthly_charges: float = Field(..., ge=0, le=1000, description="Monthly charges")
     total_charges: float = Field(..., ge=0, description="Total charges")
-    contract: str = Field(..., regex="^(Month-to-month|One year|Two year)$")
-    payment_method: str = Field(..., regex="^(Electronic check|Mailed check|Bank transfer|Credit card)$")
-    internet_service: str = Field(..., regex="^(DSL|Fiber optic|No)$")
-    online_security: str = Field(..., regex="^(Yes|No|No internet service)$")
-    tech_support: str = Field(..., regex="^(Yes|No|No internet service)$")
+    contract: str = Field(..., pattern="^(Month-to-month|One year|Two year)$")
+    payment_method: str = Field(..., pattern="^(Electronic check|Mailed check|Bank transfer|Credit card)$")
+    internet_service: str = Field(..., pattern="^(DSL|Fiber optic|No)$")
+    online_security: str = Field(..., pattern="^(Yes|No|No internet service)$")
+    tech_support: str = Field(..., pattern="^(Yes|No|No internet service)$")
     
     class Config:
         schema_extra = {

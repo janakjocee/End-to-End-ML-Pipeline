@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
 from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from enum import Enum
 import asyncio
 
 import pandas as pd

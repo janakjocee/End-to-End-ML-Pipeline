@@ -49,6 +49,7 @@ class DatabaseManager:
     def get_cursor(self, cursor_factory=RealDictCursor) -> Generator:
         """Get database cursor with automatic cleanup."""
         conn = None
+        cursor = None
         try:
             conn = psycopg2.connect(self.connection_string)
             cursor = conn.cursor(cursor_factory=cursor_factory)
@@ -151,6 +152,34 @@ class DatabaseManager:
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(model_name, model_version)
         );
+
+        -- Dataset metadata used by the data service
+        CREATE TABLE IF NOT EXISTS dataset_metadata (
+            id SERIAL PRIMARY KEY,
+            ingestion_id VARCHAR(255) NOT NULL UNIQUE,
+            dataset_name VARCHAR(255) NOT NULL,
+            version VARCHAR(100) NOT NULL,
+            row_count INTEGER NOT NULL,
+            column_count INTEGER NOT NULL,
+            columns JSONB NOT NULL,
+            size_bytes BIGINT NOT NULL,
+            checksum VARCHAR(100) NOT NULL,
+            source_type VARCHAR(50),
+            source_path TEXT,
+            validation_passed BOOLEAN DEFAULT TRUE,
+            tags JSONB,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(dataset_name, version)
+        );
+
+        CREATE TABLE IF NOT EXISTS dataset_schemas (
+            id SERIAL PRIMARY KEY,
+            dataset_name VARCHAR(255) NOT NULL,
+            version VARCHAR(100) NOT NULL,
+            schema JSONB NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(dataset_name, version)
+        );
         
         -- Feature Registry Table
         CREATE TABLE IF NOT EXISTS feature_registry (
@@ -220,6 +249,7 @@ class DatabaseManager:
         
         -- Create indexes
         CREATE INDEX IF NOT EXISTS idx_model_registry_name ON model_registry(model_name);
+        CREATE INDEX IF NOT EXISTS idx_dataset_metadata_name ON dataset_metadata(dataset_name, created_at);
         CREATE INDEX IF NOT EXISTS idx_model_registry_stage ON model_registry(model_stage);
         CREATE INDEX IF NOT EXISTS idx_training_runs_experiment ON training_runs(experiment_name);
         CREATE INDEX IF NOT EXISTS idx_drift_reports_model ON drift_reports(model_name, model_version);

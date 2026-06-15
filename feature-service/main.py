@@ -85,7 +85,7 @@ class FeatureDefinition(BaseModel):
     """Feature definition for registry."""
     name: str
     description: str
-    feature_type: str = Field(..., regex="^(numeric|categorical|datetime|derived|embedding)$")
+    feature_type: str = Field(..., pattern="^(numeric|categorical|datetime|derived|embedding)$")
     source_column: Optional[str] = None
     transformation: Optional[str] = None
     parameters: Optional[Dict[str, Any]] = None

@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch, MagicMock
 
 from shared.utils.validators import DataValidator, ColumnSchema, DataType
 from shared.utils.database import DatabaseManager
+from shared.utils.storage import StorageManager
 
 
 class TestDataValidator:
@@ -113,15 +114,14 @@ class TestStorageManager:
     """Test storage manager functionality."""
     
     @pytest.fixture
-    @patch('shared.utils.storage.boto3.client')
-    def storage_manager(self, mock_boto):
-        mock_client = MagicMock()
-        mock_boto.return_value = mock_client
-        return StorageManager(
+    def storage_manager(self):
+        manager = StorageManager(
             endpoint_url='http://localhost:9000',
             access_key='test',
             secret_key='test'
         )
+        manager._client = MagicMock()
+        return manager
     
     def test_bucket_exists(self, storage_manager):
         """Test bucket existence check."""
