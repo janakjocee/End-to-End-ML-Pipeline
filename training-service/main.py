@@ -8,13 +8,11 @@ Supports multiple algorithms with Optuna for hyperparameter tuning.
 
 import os
 import uuid
-import json
-import pickle
-import tempfile
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
 from contextlib import asynccontextmanager
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
+from enum import Enum
 import asyncio
 
 import pandas as pd
@@ -25,14 +23,13 @@ from pydantic import BaseModel, Field
 
 # ML Libraries
 from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
-    roc_auc_score, confusion_matrix, classification_report,
-    log_loss, roc_curve
+    roc_auc_score, confusion_matrix, log_loss
 )
 import xgboost as xgb
 import lightgbm as lgb
@@ -48,10 +45,9 @@ from shared.utils.database import DatabaseManager
 from shared.utils.storage import StorageManager
 from shared.utils.metrics import MetricsCollector
 from shared.models.schemas import (
-    HealthCheckResponse, TrainingConfig, EvaluationMetrics,
-    ModelMetadata, ExperimentRun
+    HealthCheckResponse, EvaluationMetrics
 )
-from shared.exceptions import TrainingError, DataValidationError
+from shared.exceptions import TrainingError
 
 logger = get_logger("training-service")
 

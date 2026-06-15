@@ -217,7 +217,7 @@ def save_dataset(df: pd.DataFrame, output_dir: str, name: str, version: str):
     print(f"Saved Parquet: {parquet_path}")
     
     # Print statistics
-    print(f"\nDataset Statistics:")
+    print("\nDataset Statistics:")
     print(f"  Samples: {len(df):,}")
     print(f"  Features: {len(df.columns)}")
     print(f"  Churn Rate: {df['churn'].mean():.2%}")

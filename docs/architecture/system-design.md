@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-The ML Platform is a production-grade, microservices-based MLOps system designed to automate the entire machine learning lifecycle. It provides enterprise-scale capabilities for data ingestion, feature engineering, model training, deployment, monitoring, and automated retraining.
+This document describes the target microservices architecture for the project. The repository's verified execution path is the local demo documented in the README; production readiness and scale claims require deployment-specific integration, security, resilience, and load testing.
 
 ## Design Principles
 
@@ -187,7 +187,7 @@ None → Staging → Production → Archived
 **Performance**:
 - Single prediction: ~10-20ms (p95)
 - Batch (1000): ~500ms
-- Throughput: 10,000+ req/s
+- Throughput: deployment-dependent; benchmark before setting an SLO
 
 **APIs**:
 ```
@@ -443,4 +443,4 @@ skip_retraining
 
 ## Conclusion
 
-The ML Platform provides a comprehensive, production-ready solution for managing the entire machine learning lifecycle. Its microservices architecture ensures scalability, while extensive monitoring and automation capabilities enable reliable operations at enterprise scale.
+The architecture provides a foundation for managing the machine learning lifecycle. Production use requires the validation and hardening work listed in the README.

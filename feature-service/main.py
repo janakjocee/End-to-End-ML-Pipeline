@@ -6,28 +6,23 @@ Microservice for feature engineering and feature store management.
 Provides reusable feature definitions and online/offline feature retrieval.
 """
 
-import os
-import json
 import hashlib
-import pickle
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Dict, List, Optional
 from datetime import datetime
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
 
 import pandas as pd
 import numpy as np
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder
-from sklearn.impute import SimpleImputer
 
 from shared.utils.logger import get_logger, StructuredLog
 from shared.utils.database import DatabaseManager, CacheManager
 from shared.utils.storage import StorageManager
-from shared.models.schemas import HealthCheckResponse, FeatureSchema
-from shared.exceptions import FeatureStoreError, DataValidationError
+from shared.models.schemas import HealthCheckResponse
+from shared.exceptions import FeatureStoreError
 
 logger = get_logger("feature-service")
 
@@ -85,7 +80,7 @@ class FeatureDefinition(BaseModel):
     """Feature definition for registry."""
     name: str
     description: str
-    feature_type: str = Field(..., regex="^(numeric|categorical|datetime|derived|embedding)$")
+    feature_type: str = Field(..., pattern="^(numeric|categorical|datetime|derived|embedding)$")
     source_column: Optional[str] = None
     transformation: Optional[str] = None
     parameters: Optional[Dict[str, Any]] = None

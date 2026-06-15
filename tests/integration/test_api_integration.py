@@ -7,8 +7,6 @@ Integration tests for ML Platform APIs.
 
 import pytest
 import httpx
-import asyncio
-from datetime import datetime
 
 # Service URLs (would be configured for test environment)
 BASE_URLS = {

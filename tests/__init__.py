@@ -1,4 +1,4 @@
-"""ML Platform Test Suite.""
+"""ML Platform test suite."""
 
 import os
 import sys

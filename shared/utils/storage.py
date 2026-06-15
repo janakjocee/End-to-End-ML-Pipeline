@@ -7,9 +7,8 @@ S3-compatible storage interface for model artifacts and datasets.
 
 import os
 import io
-import json
 import pickle
-from typing import Any, Optional, BinaryIO, Dict
+from typing import Any, Optional, Dict
 from pathlib import Path
 
 import boto3
@@ -193,7 +192,6 @@ class StorageManager:
         metadata: Optional[Dict] = None
     ) -> str:
         """Save a model to S3."""
-        import pickle
         
         model_key = f"models/{model_name}/{version}/model.pkl"
         model_bytes = pickle.dumps(model)
@@ -215,7 +213,6 @@ class StorageManager:
         
     def load_model(self, bucket_name: str, model_name: str, version: str) -> Any:
         """Load a model from S3."""
-        import pickle
         
         model_key = f"models/{model_name}/{version}/model.pkl"
         model_bytes = self.download_object(bucket_name, model_key)
@@ -230,7 +227,6 @@ class StorageManager:
         format: str = 'parquet'
     ) -> str:
         """Save a pandas DataFrame to S3."""
-        import pandas as pd
         
         buffer = io.BytesIO()
         

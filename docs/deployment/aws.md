@@ -2,6 +2,8 @@
 
 This guide covers deploying the ML Platform on AWS infrastructure.
 
+> **Reference architecture:** the Terraform, Kubernetes, and CloudWatch files shown in this guide are not included in this repository. Treat the commands and cost figures as planning examples that must be implemented and validated for your environment.
+
 ## Architecture Overview
 
 ```

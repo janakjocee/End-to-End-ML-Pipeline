@@ -108,11 +108,11 @@ class DataValidator:
         
         # Check nullability
         if not schema.nullable and series.isnull().any():
-            errors.append(f"Column contains null values but is not nullable")
+            errors.append("Column contains null values but is not nullable")
             
         # Check uniqueness
         if schema.unique and series.nunique() != len(series):
-            errors.append(f"Column contains duplicate values but should be unique")
+            errors.append("Column contains duplicate values but should be unique")
             
         # Check data type
         if schema.dtype == DataType.NUMERIC:
@@ -161,7 +161,7 @@ class DataValidator:
         
         for col, stats in expected_stats.items():
             if col not in df.columns:
-                errors[col] = [f"Column not found"]
+                errors[col] = ["Column not found"]
                 continue
                 
             col_errors = []
@@ -225,7 +225,16 @@ class DataValidator:
             'schema_errors': schema_errors,
             'missing_values': df.isnull().sum().to_dict(),
             'duplicate_rows': df.duplicated().sum(),
-            'memory_usage_mb': df.memory_usage(deep=True).sum() / 1024 / 1024
+            'memory_usage_mb': df.memory_usage(deep=True).sum() / 1024 / 1024,
+            'statistics': [
+                {
+                    'feature_name': column,
+                    'dtype': str(df[column].dtype),
+                    'null_count': int(df[column].isnull().sum()),
+                    'unique_count': int(df[column].nunique()),
+                }
+                for column in df.columns
+            ],
         }
         
         return report
@@ -296,11 +305,11 @@ class ChurnPredictionFeatures(BaseModel):
     tenure: int = Field(..., ge=0, le=100, description="Months as customer")
     monthly_charges: float = Field(..., ge=0, le=1000, description="Monthly charges")
     total_charges: float = Field(..., ge=0, description="Total charges")
-    contract: str = Field(..., regex="^(Month-to-month|One year|Two year)$")
-    payment_method: str = Field(..., regex="^(Electronic check|Mailed check|Bank transfer|Credit card)$")
-    internet_service: str = Field(..., regex="^(DSL|Fiber optic|No)$")
-    online_security: str = Field(..., regex="^(Yes|No|No internet service)$")
-    tech_support: str = Field(..., regex="^(Yes|No|No internet service)$")
+    contract: str = Field(..., pattern="^(Month-to-month|One year|Two year)$")
+    payment_method: str = Field(..., pattern="^(Electronic check|Mailed check|Bank transfer|Credit card)$")
+    internet_service: str = Field(..., pattern="^(DSL|Fiber optic|No)$")
+    online_security: str = Field(..., pattern="^(Yes|No|No internet service)$")
+    tech_support: str = Field(..., pattern="^(Yes|No|No internet service)$")
     
     class Config:
         schema_extra = {

@@ -6,7 +6,6 @@ Microservice for data ingestion, validation, and versioning.
 Supports multiple data sources: CSV, databases, APIs.
 """
 
-import os
 import uuid
 import hashlib
 from typing import Any, Dict, List, Optional
@@ -14,7 +13,6 @@ from datetime import datetime
 from contextlib import asynccontextmanager
 
 import pandas as pd
-import numpy as np
 from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -24,7 +22,6 @@ from shared.utils.database import DatabaseManager, MongoManager
 from shared.utils.storage import StorageManager
 from shared.utils.validators import DataValidator, ColumnSchema, DataType
 from shared.models.schemas import HealthCheckResponse
-from shared.exceptions import DataValidationError, StorageError
 
 # Configure logging
 logger = get_logger("data-service")
@@ -88,7 +85,7 @@ app.add_middleware(
 
 class DataSourceConfig(BaseModel):
     """Data source configuration."""
-    source_type: str = Field(..., regex="^(csv|database|api|parquet)$")
+    source_type: str = Field(..., pattern="^(csv|database|api|parquet)$")
     source_path: str
     connection_string: Optional[str] = None
     query: Optional[str] = None
@@ -427,10 +424,6 @@ async def get_dataset(dataset_name: str, version: str):
         
         if not result:
             raise HTTPException(status_code=404, detail="Dataset not found")
-        
-        # Generate presigned URL
-        bucket_name = "ml-datasets"
-        object_key = f"datasets/{dataset_name}/{version}/data.parquet"
         
         return {
             "metadata": result,

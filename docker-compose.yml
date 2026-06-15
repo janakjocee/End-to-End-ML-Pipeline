@@ -80,6 +80,20 @@ services:
     networks:
       - mlplatform-network
 
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${MINIO_USER:-minioadmin} ${MINIO_PASSWORD:-minioadmin};
+      mc mb --ignore-existing local/mlflow-artifacts;
+      mc mb --ignore-existing local/ml-datasets;
+      "
+    networks:
+      - mlplatform-network
+
   # ============================================
   # MLflow Tracking Server
   # ============================================
@@ -102,6 +116,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     volumes:
       - ./model-registry:/app
       - mlflow_data:/mlflow
@@ -349,10 +365,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    deploy:
-      replicas: 2
-      restart_policy:
-        condition: on-failure
+    restart: on-failure
 
   monitoring-service:
     build:
