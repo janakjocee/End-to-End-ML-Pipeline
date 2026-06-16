@@ -1,0 +1,7 @@
+*
+!api/**
+!package.json
+!public/**
+!scripts/
+!scripts/verify_web_assets.mjs
+!vercel.json
