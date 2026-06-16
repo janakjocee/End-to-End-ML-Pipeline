@@ -4,6 +4,70 @@ const path = require("node:path");
 const bundlePath = path.join(process.cwd(), "public", "model_bundle.json");
 const bundle = JSON.parse(fs.readFileSync(bundlePath, "utf8"));
 
+const columnAliases = {
+  customer_id: ["customerid", "customer", "id", "accountid", "accountnumber", "clientid", "subscriberid"],
+  senior_citizen: ["seniorcitizen", "senior", "is_senior", "seniorflag", "age65plus"],
+  tenure: ["tenure", "tenuremonths", "monthsactive", "monthssubscribed", "customerage", "months"],
+  monthly_charges: ["monthlycharges", "monthlycharge", "monthlyfee", "monthlyamount", "monthlybill", "mrr", "arpu"],
+  total_charges: ["totalcharges", "totalcharge", "lifetimevalue", "ltv", "totalspend", "totalbilled"],
+  gender: ["gender", "sex"],
+  partner: ["partner", "haspartner", "married", "spouse"],
+  dependents: ["dependents", "hasdependents", "children"],
+  phone_service: ["phoneservice", "phone", "hasphone", "voice"],
+  multiple_lines: ["multiplelines", "multilines", "additionallines", "lines"],
+  internet_service: ["internetservice", "internet", "internettype", "broadband", "serviceinternet"],
+  online_security: ["onlinesecurity", "security", "cybersecurity", "securityaddon"],
+  online_backup: ["onlinebackup", "backup", "cloudbackup"],
+  device_protection: ["deviceprotection", "devicecover", "protection", "insurance"],
+  tech_support: ["techsupport", "technicalsupport", "support", "premiumsupport"],
+  streaming_tv: ["streamingtv", "tvstreaming", "tv"],
+  streaming_movies: ["streamingmovies", "moviestreaming", "movies"],
+  contract: ["contract", "contracttype", "plan", "plantype", "subscriptiontype", "term"],
+  paperless_billing: ["paperlessbilling", "paperless", "ebilling", "digitalbilling"],
+  payment_method: ["paymentmethod", "payment", "paymethod", "billingmethod", "methodofpayment"],
+};
+
+function canonicalize(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function inferColumnMapping(record) {
+  const normalizedHeaders = new Map(Object.keys(record || {}).map((header) => [canonicalize(header), header]));
+  const mapping = {};
+  const defaults = [];
+
+  for (const feature of Object.keys(bundle.schema)) {
+    const candidates = [feature, ...(columnAliases[feature] || [])].map(canonicalize);
+    const matched = candidates.map((candidate) => normalizedHeaders.get(candidate)).find(Boolean);
+    if (matched) {
+      mapping[feature] = matched;
+    } else {
+      defaults.push(feature);
+    }
+  }
+
+  const customerId = ["customer_id", ...(columnAliases.customer_id || [])]
+    .map(canonicalize)
+    .map((candidate) => normalizedHeaders.get(candidate))
+    .find(Boolean);
+  return { mapping, defaults, customerId };
+}
+
+function normalizeCategory(value, spec) {
+  const text = String(value ?? "").trim();
+  if (!text) return spec.default;
+  const exact = spec.values.find((candidate) => candidate.toLowerCase() === text.toLowerCase());
+  if (exact) return exact;
+  const compact = canonicalize(text);
+  const loose = spec.values.find((candidate) => canonicalize(candidate) === compact);
+  if (loose) return loose;
+  if (["true", "1", "y"].includes(compact) && spec.values.includes("Yes")) return "Yes";
+  if (["false", "0", "n"].includes(compact) && spec.values.includes("No")) return "No";
+  return spec.default;
+}
+
 function sigmoid(value) {
   if (value >= 0) {
     const z = Math.exp(-value);
@@ -36,7 +100,27 @@ function normalizeFeatures(rawFeatures) {
   const features = {};
   for (const [name, spec] of Object.entries(bundle.schema)) {
     const value = rawFeatures[name] ?? spec.default;
-    features[name] = spec.type === "numeric" ? Number(value) : String(value);
+    if (spec.type === "numeric") {
+      const numeric = Number(value);
+      features[name] = Number.isFinite(numeric) ? numeric : Number(spec.default);
+    } else {
+      features[name] = normalizeCategory(value, spec);
+    }
+  }
+  return features;
+}
+
+function coerceMappedFeatures(record, mapping) {
+  const features = {};
+  for (const [name, spec] of Object.entries(bundle.schema)) {
+    const sourceColumn = mapping[name];
+    const value = sourceColumn ? record[sourceColumn] : spec.default;
+    if (spec.type === "numeric") {
+      const numeric = Number(value);
+      features[name] = Number.isFinite(numeric) ? numeric : Number(spec.default);
+    } else {
+      features[name] = normalizeCategory(value, spec);
+    }
   }
   return features;
 }
@@ -100,9 +184,10 @@ function summarizeScores(scoredRows) {
 }
 
 function scoreBatch(records) {
+  const inference = inferColumnMapping(records[0]);
   const scored = records.map((record, index) => {
-    const customer_id = record.customer_id || `uploaded-${index + 1}`;
-    const features = normalizeFeatures(record);
+    const customer_id = inference.customerId ? record[inference.customerId] : `uploaded-${index + 1}`;
+    const features = coerceMappedFeatures(record, inference.mapping);
     return {
       customer_id,
       features,
@@ -112,6 +197,11 @@ function scoreBatch(records) {
   scored.sort((a, b) => b.score.revenue_at_risk - a.score.revenue_at_risk);
   return {
     summary: summarizeScores(scored),
+    mapping: {
+      detected_fields: inference.mapping,
+      defaults_used: inference.defaults,
+      customer_id_column: inference.customerId || null,
+    },
     scored,
   };
 }
@@ -120,4 +210,5 @@ module.exports = {
   bundle,
   scoreCustomer,
   scoreBatch,
+  inferColumnMapping,
 };

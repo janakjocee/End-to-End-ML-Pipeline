@@ -70,8 +70,9 @@
             <h2>Upload customer records</h2>
           </div>
           <p>
-            Upload a CSV with one row per customer. The app validates required fields,
-            scores every record, prioritizes outreach, and lets you export the action queue.
+            Upload a CSV with one row per customer. The app auto-detects similar column
+            names, fills missing model fields with safe defaults, scores every record,
+            prioritizes outreach, and lets you export the action queue.
           </p>
         </div>
 
@@ -80,20 +81,24 @@
             <input id="csv-upload" type="file" accept=".csv,text/csv" />
             <strong>Drop in a customer CSV</strong>
             <p>
-              Required columns are read from the model schema. Include
-              <code>customer_id</code> when available.
+              Use your own column names. The app maps common variations like
+              <code>MonthlyCharge</code>, <code>contract_type</code>, or
+              <code>payment method</code> automatically.
             </p>
             <div class="upload-actions">
               <label class="button primary file-button" for="csv-upload">Choose CSV file</label>
               <a class="button secondary" href="/sample-customers.csv" download>Use sample CSV</a>
+              <a class="button secondary" href="/sample-flexible-customers.csv" download>Use messy CSV</a>
             </div>
           </div>
           <div class="schema-card">
-            <h3>Expected columns</h3>
-            <p id="schema-columns">Loading schema...</p>
+            <h3>Dynamic mapping</h3>
+            <p id="schema-columns">Loading model schema...</p>
             <div id="upload-status" class="status-message">No file uploaded yet.</div>
           </div>
         </div>
+
+        <div id="mapping-report" class="mapping-report hidden"></div>
 
         <div id="uploaded-summary" class="cards compact hidden" aria-label="Uploaded file summary">
           <article class="card">

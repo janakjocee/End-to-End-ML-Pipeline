@@ -262,6 +262,36 @@ footer,
   margin-top: 2rem;
 }
 
+.mapping-report {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  color: var(--muted);
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.mapping-report strong {
+  color: var(--text);
+}
+
+.mapping-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.mapping-chip {
+  background: rgba(55, 208, 255, 0.12);
+  border: 1px solid rgba(55, 208, 255, 0.28);
+  border-radius: 999px;
+  color: #bae6fd;
+  font-size: 0.82rem;
+  padding: 0.45rem 0.65rem;
+}
+
 .form {
   display: grid;
   gap: 0.85rem;

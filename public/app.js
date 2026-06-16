@@ -15,12 +15,55 @@ const uploadStatus = document.querySelector("#upload-status");
 const uploadResults = document.querySelector("#upload-results");
 const uploadedSummary = document.querySelector("#uploaded-summary");
 const downloadButton = document.querySelector("#download-scored");
+const mappingReport = document.querySelector("#mapping-report");
 const state = {
   bundle: null,
   customers: [],
   summary: null,
   uploaded: [],
 };
+
+const columnAliases = {
+  customer_id: ["customerid", "customer", "id", "accountid", "accountnumber", "clientid", "subscriberid"],
+  senior_citizen: ["seniorcitizen", "senior", "is_senior", "seniorflag", "age65plus"],
+  tenure: ["tenure", "tenuremonths", "monthsactive", "monthssubscribed", "customerage", "months"],
+  monthly_charges: ["monthlycharges", "monthlycharge", "monthlyfee", "monthlyamount", "monthlybill", "mrr", "arpu"],
+  total_charges: ["totalcharges", "totalcharge", "lifetimevalue", "ltv", "totalspend", "totalbilled"],
+  gender: ["gender", "sex"],
+  partner: ["partner", "haspartner", "married", "spouse"],
+  dependents: ["dependents", "hasdependents", "children"],
+  phone_service: ["phoneservice", "phone", "hasphone", "voice"],
+  multiple_lines: ["multiplelines", "multilines", "additionalLines", "lines"],
+  internet_service: ["internetservice", "internet", "internettype", "broadband", "serviceinternet"],
+  online_security: ["onlinesecurity", "security", "cybersecurity", "securityaddon"],
+  online_backup: ["onlinebackup", "backup", "cloudbackup"],
+  device_protection: ["deviceprotection", "devicecover", "protection", "insurance"],
+  tech_support: ["techsupport", "technicalsupport", "support", "premiumsupport"],
+  streaming_tv: ["streamingtv", "tvstreaming", "tv"],
+  streaming_movies: ["streamingmovies", "moviestreaming", "movies"],
+  contract: ["contract", "contracttype", "plan", "plantype", "subscriptiontype", "term"],
+  paperless_billing: ["paperlessbilling", "paperless", "ebilling", "digitalbilling"],
+  payment_method: ["paymentmethod", "payment", "paymethod", "billingmethod", "methodofpayment"],
+};
+
+function canonicalize(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function normalizeCategory(value, spec) {
+  const text = String(value ?? "").trim();
+  if (!text) return spec.default;
+  const exact = spec.values.find((candidate) => candidate.toLowerCase() === text.toLowerCase());
+  if (exact) return exact;
+  const compact = canonicalize(text);
+  const loose = spec.values.find((candidate) => canonicalize(candidate) === compact);
+  if (loose) return loose;
+  if (["true", "1", "y"].includes(compact) && spec.values.includes("Yes")) return "Yes";
+  if (["false", "0", "n"].includes(compact) && spec.values.includes("No")) return "No";
+  return spec.default;
+}
 
 function sigmoid(value) {
   if (value >= 0) {
@@ -186,48 +229,68 @@ function parseCsv(text) {
   );
 }
 
-function validateRecords(records) {
-  const required = Object.keys(state.bundle.schema);
-  const present = new Set(Object.keys(records[0] || {}));
-  const missing = required.filter((name) => !present.has(name));
-  if (missing.length) {
-    throw new Error(`Missing required columns: ${missing.join(", ")}`);
-  }
+function inferColumnMapping(headers) {
+  const normalizedHeaders = new Map(headers.map((header) => [canonicalize(header), header]));
+  const mapping = {};
+  const defaults = [];
 
-  const errors = [];
-  records.forEach((record, rowIndex) => {
-    required.forEach((name) => {
-      const spec = state.bundle.schema[name];
-      const value = record[name];
-      if (spec.type === "numeric" && Number.isNaN(Number(value))) {
-        errors.push(`row ${rowIndex + 2}: ${name} must be numeric`);
-      }
-      if (spec.type === "categorical" && !spec.values.includes(String(value))) {
-        errors.push(`row ${rowIndex + 2}: ${name} must be one of ${spec.values.join(" / ")}`);
-      }
-    });
+  Object.keys(state.bundle.schema).forEach((feature) => {
+    const candidates = [feature, ...(columnAliases[feature] || [])].map(canonicalize);
+    const matched = candidates.map((candidate) => normalizedHeaders.get(candidate)).find(Boolean);
+    if (matched) {
+      mapping[feature] = matched;
+    } else {
+      defaults.push(feature);
+    }
   });
 
-  if (errors.length) {
-    throw new Error(errors.slice(0, 5).join("; ") + (errors.length > 5 ? `; +${errors.length - 5} more` : ""));
-  }
+  const idCandidates = (columnAliases.customer_id || []).map(canonicalize);
+  const customerId = ["customer_id", ...idCandidates].map(canonicalize).map((candidate) => normalizedHeaders.get(candidate)).find(Boolean);
+  return { mapping, defaults, customerId };
 }
 
-function scoreUploadedRecords(records) {
+function coerceRecord(record, mapping) {
+  const features = {};
+  Object.entries(state.bundle.schema).forEach(([name, spec]) => {
+    const sourceColumn = mapping[name];
+    const rawValue = sourceColumn ? record[sourceColumn] : "";
+    if (spec.type === "numeric") {
+      const numeric = Number(rawValue);
+      features[name] = Number.isFinite(numeric) ? numeric : Number(spec.default);
+    } else {
+      features[name] = normalizeCategory(rawValue, spec);
+    }
+  });
+  return features;
+}
+
+function scoreUploadedRecords(records, inference) {
   return records
     .map((record, index) => {
-      const features = {};
-      Object.entries(state.bundle.schema).forEach(([name, spec]) => {
-        features[name] = spec.type === "numeric" ? Number(record[name]) : String(record[name]);
-      });
+      const features = coerceRecord(record, inference.mapping);
       const score = scoreCustomer(state.bundle, features);
       return {
-        customer_id: record.customer_id || `uploaded-${index + 1}`,
+        customer_id: inference.customerId ? record[inference.customerId] : `uploaded-${index + 1}`,
         features,
         score,
       };
     })
     .sort((a, b) => b.score.revenue_at_risk - a.score.revenue_at_risk);
+}
+
+function renderMappingReport(inference) {
+  const mapped = Object.entries(inference.mapping).map(([feature, column]) => `${feature} ← ${column}`);
+  const defaults = inference.defaults.map((feature) => `${feature}=${state.bundle.schema[feature].default}`);
+  mappingReport.classList.remove("hidden");
+  mappingReport.innerHTML = `
+    <div><strong>Column mapping:</strong> ${mapped.length} model fields detected automatically.</div>
+    <div class="mapping-chips">${mapped.slice(0, 12).map((item) => `<span class="mapping-chip">${item}</span>`).join("")}</div>
+    ${
+      defaults.length
+        ? `<div><strong>Defaults used:</strong> ${defaults.slice(0, 10).join(", ")}${defaults.length > 10 ? `, +${defaults.length - 10} more` : ""}</div>`
+        : "<div><strong>Defaults used:</strong> none</div>"
+    }
+  `;
 }
 
 function renderUploadSummary(rows) {
@@ -311,11 +374,12 @@ async function handleUpload(event) {
     uploadStatus.className = "status-message";
     uploadStatus.textContent = `Reading ${file.name}...`;
     const records = parseCsv(await file.text());
-    validateRecords(records);
-    state.uploaded = scoreUploadedRecords(records);
+    const inference = inferColumnMapping(Object.keys(records[0]));
+    state.uploaded = scoreUploadedRecords(records, inference);
     uploadStatus.className = "status-message success";
     uploadStatus.textContent =
-      `Scored ${state.uploaded.length.toLocaleString()} rows. Showing the top 25 accounts by revenue at risk.`;
+      `Scored ${state.uploaded.length.toLocaleString()} rows with ${Object.keys(inference.mapping).length} detected fields and ${inference.defaults.length} defaults. Showing the top 25 accounts by revenue at risk.`;
+    renderMappingReport(inference);
     renderUploadSummary(state.uploaded);
     renderUploadedTable();
     uploadResults.classList.remove("hidden");
@@ -323,6 +387,7 @@ async function handleUpload(event) {
     state.uploaded = [];
     uploadedSummary.classList.add("hidden");
     uploadResults.classList.add("hidden");
+    mappingReport.classList.add("hidden");
     uploadStatus.className = "status-message error-text";
     uploadStatus.textContent = error.message;
   }
@@ -402,7 +467,8 @@ function renderSchemaHelp() {
     if (spec.type === "numeric") return `${name} (number)`;
     return `${name} (${spec.values.join(" | ")})`;
   });
-  document.querySelector("#schema-columns").textContent = `customer_id optional, then ${required.join(", ")}`;
+  document.querySelector("#schema-columns").textContent =
+    `Best results include: ${required.join(", ")}. Missing fields are filled with model defaults; similar column names are auto-detected.`;
 }
 
 function renderTable() {

@@ -10,6 +10,7 @@ const required = [
   "public/customer_scores.json",
   "public/business_summary.json",
   "public/sample-customers.csv",
+  "public/sample-flexible-customers.csv",
   "public/demo-pipeline-results.png",
   "public/data-drift-comparison.png",
   "api/score.js",
@@ -61,4 +62,26 @@ if (batch.summary.customers_scored !== 2 || batch.scored.length !== 2) {
   throw new Error("Batch scoring smoke test failed.");
 }
 
-console.log(`Verified web app assets, single scoring, and batch scoring for ${customers.length} demo customers.`);
+const flexibleBatch = scoreBatch([
+  {
+    "Account ID": "ACME-001",
+    "Months Active": 7,
+    MonthlyCharge: 105.2,
+    LTV: 736.4,
+    Sex: "Female",
+    Plan: "Month-to-month",
+    "Payment Method": "Electronic check",
+    "Internet Type": "Fiber optic",
+    Security: "No",
+    Support: "No",
+  },
+]);
+if (
+  flexibleBatch.scored[0].customer_id !== "ACME-001" ||
+  flexibleBatch.mapping.detected_fields.tenure !== "Months Active" ||
+  flexibleBatch.mapping.detected_fields.monthly_charges !== "MonthlyCharge"
+) {
+  throw new Error("Flexible column mapping smoke test failed.");
+}
+
+console.log(`Verified web app assets, dynamic mapping, single scoring, and batch scoring for ${customers.length} demo customers.`);
