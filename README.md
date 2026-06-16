@@ -134,7 +134,7 @@ curl -X POST http://localhost:3000/api/score \
 
 ## Deploy To Vercel
 
-The repository includes `vercel.json`, `package.json`, `public/`, `api/score.mjs`, and a Build Output API packager.
+The repository includes `vercel.json`, `package.json`, `public/`, `api/score.js`, and a Build Output API packager for local package inspection.
 
 ```bash
 npm run build
@@ -144,8 +144,8 @@ npx vercel --prod
 Vercel should use:
 
 - build command: `npm run build`
-- static assets: `.vercel/output/static`, generated from `public/`
-- serverless function: `.vercel/output/functions/api/score.func`, generated from the scoring bundle
+- static assets: `public/`
+- serverless function: `api/score.js`
 
 If your Vercel project is connected to GitHub, pushing `main` will trigger deployment automatically.
 
@@ -205,7 +205,7 @@ Compose creates the required MinIO buckets and mounts the included PostgreSQL an
 | Path | Purpose |
 |---|---|
 | `public/` | Vercel-ready customer churn command center |
-| `api/score.mjs` | Lightweight serverless scoring endpoint |
+| `api/score.js` | Lightweight serverless scoring endpoint |
 | `scripts/build_vercel_output.mjs` | Deterministic Vercel package builder |
 | `scripts/run_demo_pipeline.py` | Verified local end-to-end workflow |
 | `shared/churn_business.py` | Pure-Python scoring, action, and revenue logic |

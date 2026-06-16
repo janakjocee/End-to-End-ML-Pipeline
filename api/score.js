@@ -1,5 +1,5 @@
-import fs from "node:fs";
-import path from "node:path";
+const fs = require("node:fs");
+const path = require("node:path");
 
 const bundlePath = path.join(process.cwd(), "public", "model_bundle.json");
 const bundle = JSON.parse(fs.readFileSync(bundlePath, "utf8"));
@@ -65,11 +65,11 @@ function score(features) {
   };
 }
 
-export default async function handler(request) {
+module.exports = (request, response) => {
   if (request.method !== "POST") {
-    return Response.json({ error: "Use POST with a JSON body." }, { status: 405, headers: { Allow: "POST" } });
+    response.setHeader("Allow", "POST");
+    return response.status(405).json({ error: "Use POST with a JSON body." });
   }
-  const body = await request.json().catch(() => ({}));
-  const features = body.features || body || {};
-  return Response.json(score(features));
-}
+  const features = request.body?.features || request.body || {};
+  return response.status(200).json(score(features));
+};

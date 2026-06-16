@@ -1,7 +1,10 @@
 *
+!api
 !api/**
+!package-lock.json
 !package.json
+!public
 !public/**
-!scripts/
-!scripts/verify_web_assets.mjs
+!scripts
+!scripts/**
 !vercel.json
