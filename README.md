@@ -1,13 +1,43 @@
-# End-to-End ML Pipeline
+# Customer Churn Command Center
 
 [![ML Pipeline CI](https://github.com/janakjocee/End-to-End-ML-Pipeline/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/janakjocee/End-to-End-ML-Pipeline/actions/workflows/ci-cd.yml)
 
-A reproducible customer-churn machine learning project with two execution paths:
+A practical end-to-end ML product for customer-success teams. It trains a churn model, exports a lightweight deployment bundle, scores customer accounts, estimates revenue at risk, recommends retention actions, and serves a Vercel-ready command center.
 
-- **Verified local demo:** generates data, preprocesses mixed feature types, trains a class-balanced classifier, evaluates normal and drifted data, and persists the model and reports.
-- **Optional MLOps stack:** FastAPI microservices plus PostgreSQL, MongoDB, Redis, MinIO, MLflow, Airflow, Prometheus, Grafana, and Nginx through Docker Compose.
+This repository now has three practical layers:
 
-The local demo and unit suite are the repository's tested path. The larger Compose stack is an extensible reference architecture and requires Docker plus substantially more resources.
+- **Business app:** a browser dashboard for churn scoring, revenue-at-risk prioritization, action recommendations, model evidence, and API usage.
+- **ML pipeline:** reproducible data generation, preprocessing, training, evaluation, drift scenario generation, model export, and portfolio scoring.
+- **MLOps reference stack:** optional FastAPI microservices plus PostgreSQL, MongoDB, Redis, MinIO, MLflow, Airflow, Prometheus, Grafana, and Nginx.
+
+The Vercel app uses a small JSON scoring bundle instead of shipping heavy ML dependencies to serverless. This follows current deployment reality: Vercel supports Python/ASGI apps, but practical ML demos should keep serverless bundles small and push training to CI or offline jobs.
+
+## Product Workflow
+
+```mermaid
+flowchart LR
+    A[Customer records] --> B[Training pipeline]
+    B --> C[Model bundle JSON]
+    C --> D[Vercel command center]
+    C --> E[Score API]
+    D --> F[Rank at-risk accounts]
+    E --> F
+    F --> G[Retention action queue]
+    G --> H[Revenue saved estimate]
+```
+
+## What Makes It Practical
+
+| Capability | Why it matters |
+|---|---|
+| Interactive scoring | Customer-success users can test account scenarios without notebooks. |
+| Revenue at risk | The model output is tied to a business decision, not just a probability. |
+| Next-best action | Each score maps to an intervention, estimated cost, and expected lift. |
+| Explainability | Top risk drivers show what moved the score. |
+| Portfolio queue | Accounts are ranked by revenue at risk for daily outreach. |
+| Drift scenario | The project demonstrates how distribution shifts affect monitoring. |
+| Lightweight deploy | Vercel serves the dashboard and Node score API without full training dependencies. |
+| CI guardrails | Compile, lint, unit tests, demo generation, web asset validation, and Compose validation. |
 
 ## Verified Result
 
@@ -27,9 +57,18 @@ The class-balanced model favors churn recall over raw accuracy. On the generated
 
 ![Generated normal and drift data comparison](docs/assets/data-drift-comparison.png)
 
+The generated portfolio artifact currently scores `250` customer accounts:
+
+| Business metric | Verified value |
+|---|---:|
+| High-risk customers | 68 |
+| High-risk share | 27.2% |
+| Revenue at risk | $162,533 |
+| Expected net value from actions | $21,076 |
+
 ## Quick Start
 
-Requirements: Python 3.10+ and `make`.
+Requirements: Python 3.10+, Node.js 20+, and `make`.
 
 ```bash
 git clone https://github.com/janakjocee/End-to-End-ML-Pipeline.git
@@ -38,6 +77,7 @@ cd End-to-End-ML-Pipeline
 make setup
 make test
 make demo
+npm run build
 ```
 
 `make demo` creates:
@@ -46,8 +86,12 @@ make demo
 artifacts/demo/churn_pipeline.joblib  # fitted preprocessing + classifier pipeline
 artifacts/demo/holdout.csv            # evaluation split
 artifacts/demo/metrics.json           # normal and drift evaluation metrics
+artifacts/demo/model_bundle.json      # lightweight deployable scoring bundle
+artifacts/demo/customer_scores.json   # scored customer portfolio
+artifacts/demo/business_summary.json  # portfolio value summary
 docs/assets/demo-pipeline-results.png # regenerated README result image
 docs/assets/data-drift-comparison.png # regenerated drift scenario image
+public/*.json                         # web app data artifacts
 ```
 
 Run individual commands without `make`:
@@ -57,9 +101,55 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements-test.txt
 .venv/bin/python -m pytest tests/unit -q
 .venv/bin/python -m scripts.run_demo_pipeline
+npm run build
 ```
 
-## Pipeline
+## Run The Web App Locally
+
+```bash
+npm run build
+npx vercel dev
+```
+
+Open the local URL that Vercel prints. The dashboard loads from `public/` and the score endpoint is available at `POST /api/score`.
+
+Example API request:
+
+```bash
+curl -X POST http://localhost:3000/api/score \
+  -H "Content-Type: application/json" \
+  -d '{
+    "features": {
+      "tenure": 12,
+      "monthly_charges": 95,
+      "total_charges": 1140,
+      "contract": "Month-to-month",
+      "payment_method": "Electronic check",
+      "internet_service": "Fiber optic",
+      "online_security": "No",
+      "tech_support": "No"
+    }
+  }'
+```
+
+## Deploy To Vercel
+
+The repository includes `vercel.json`, `package.json`, `public/`, `api/score.mjs`, and a Build Output API packager.
+
+```bash
+npm run build
+npx vercel --prod
+```
+
+Vercel should use:
+
+- build command: `npm run build`
+- static assets: `.vercel/output/static`, generated from `public/`
+- serverless function: `.vercel/output/functions/api/score.func`, generated from the scoring bundle
+
+If your Vercel project is connected to GitHub, pushing `main` will trigger deployment automatically.
+
+## ML Pipeline
 
 ```mermaid
 flowchart LR
@@ -75,6 +165,13 @@ flowchart LR
 ```
 
 The generator creates 21 customer and service fields. Churn probability is influenced by contract type, payment method, internet service, tenure, support services, senior status, and monthly charges.
+
+## Governance
+
+- [Model card](docs/model-card.md)
+- [Data card](docs/data-card.md)
+- [System design](docs/architecture/system-design.md)
+- [AWS deployment reference](docs/deployment/aws.md)
 
 ## Optional Compose Stack
 
@@ -107,7 +204,11 @@ Compose creates the required MinIO buckets and mounts the included PostgreSQL an
 
 | Path | Purpose |
 |---|---|
+| `public/` | Vercel-ready customer churn command center |
+| `api/score.mjs` | Lightweight serverless scoring endpoint |
+| `scripts/build_vercel_output.mjs` | Deterministic Vercel package builder |
 | `scripts/run_demo_pipeline.py` | Verified local end-to-end workflow |
+| `shared/churn_business.py` | Pure-Python scoring, action, and revenue logic |
 | `scripts/generate_sample_data.py` | Deterministic normal and drift data generator |
 | `tests/unit/` | Fast local validation |
 | `data-service/` | Dataset ingestion, validation, metadata, and storage API |
@@ -128,7 +229,8 @@ The GitHub Actions workflow runs:
 2. Ruff static checks
 3. Unit tests
 4. A fresh end-to-end demo
-5. Docker Compose configuration validation
+5. Vercel web asset validation
+6. Docker Compose configuration validation
 
 Local validation:
 
@@ -136,14 +238,13 @@ Local validation:
 make compile
 make test
 make demo
+npm run build
 .venv/bin/ruff check . --exclude retraining-orchestrator
 ```
 
 ## Current Scope
 
-The repository demonstrates an MLOps architecture and a working local ML lifecycle. Before production use, add authentication and authorization, secrets management, service-specific dependency locking, full integration tests against running containers, load tests, backup/restore validation, and deployment manifests.
-
-See [system design](docs/architecture/system-design.md) and [AWS deployment reference](docs/deployment/aws.md) for the intended architecture.
+The web app is practical for a portfolio/demo and can be hosted. Before using it for real customer decisions, add authenticated data access, human review workflow, consent/compliance checks, live CRM integration, post-intervention outcome tracking, fairness review, model recalibration, and production observability.
 
 ## License
 
