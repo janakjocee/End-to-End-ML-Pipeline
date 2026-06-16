@@ -11,6 +11,8 @@ const required = [
   "public/business_summary.json",
   "public/sample-customers.csv",
   "public/sample-flexible-customers.csv",
+  "public/telco-sample.csv",
+  "public/scoring-worker.js",
   "public/demo-pipeline-results.png",
   "public/data-drift-comparison.png",
   "api/score.js",

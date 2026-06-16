@@ -95,6 +95,7 @@ docs/assets/data-drift-comparison.png # regenerated drift scenario image
 public/*.json                         # web app data artifacts
 public/sample-customers.csv           # schema-aligned example customer file
 public/sample-flexible-customers.csv  # messy real-world-style example with alternate column names
+public/telco-sample.csv               # public Telco churn-style sample columns
 ```
 
 Run individual commands without `make`:
@@ -116,7 +117,18 @@ npx vercel dev
 
 Open the local URL that Vercel prints. The dashboard loads from `public/`, supports dynamic CSV upload in the browser, and exposes scoring endpoints at `POST /api/score` and `POST /api/batch-score`.
 
-The CSV uploader does not require perfect model column names. It auto-detects common variations such as `MonthlyCharge`, `Monthly Fee`, `Months Active`, `Plan`, `Payment Method`, and `Account ID`. Missing model fields are filled with the model bundle defaults and shown in the mapping report before the scored action queue.
+The CSV uploader does not require perfect model column names. It auto-detects common variations such as `MonthlyCharge`, `Monthly Fee`, `Months Active`, `Plan`, `Payment Method`, and `Account ID`, including IBM Telco-style fields like `customerID`, `SeniorCitizen`, `MonthlyCharges`, `TotalCharges`, and `Churn`. Missing model fields are filled with the model bundle defaults and shown in the mapping report before the scored action queue. Users can manually override the inferred mapping before re-scoring.
+
+Browser workflow features:
+
+- editable column mapping UI
+- local saved upload history
+- action status and outcome tracking
+- input/prediction drift warnings
+- scored CSV export
+- CRM/task-board CSV export
+- Web Worker scoring for larger browser uploads
+- privacy-first behavior: uploaded CSV rows stay in the browser unless the API is called directly
 
 Example API request:
 

@@ -292,6 +292,18 @@ footer,
   padding: 0.45rem 0.65rem;
 }
 
+.mapping-editor {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 1rem 0;
+}
+
+summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
 .form {
   display: grid;
   gap: 0.85rem;
@@ -435,7 +447,8 @@ footer {
   .hero-grid,
   .split,
   .form,
-  .upload-grid {
+  .upload-grid,
+  .mapping-editor {
     grid-template-columns: 1fr;
   }
 

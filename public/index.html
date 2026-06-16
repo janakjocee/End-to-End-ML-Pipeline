@@ -16,6 +16,7 @@
         <span class="logo">Churn Command Center</span>
         <a href="#batch">Upload CSV</a>
         <a href="#portfolio">Portfolio</a>
+        <a href="#history">History</a>
         <a href="#score">Single score</a>
         <a href="#governance">Governance</a>
       </nav>
@@ -89,6 +90,7 @@
               <label class="button primary file-button" for="csv-upload">Choose CSV file</label>
               <a class="button secondary" href="/sample-customers.csv" download>Use sample CSV</a>
               <a class="button secondary" href="/sample-flexible-customers.csv" download>Use messy CSV</a>
+              <a class="button secondary" href="/telco-sample.csv" download>Use Telco CSV</a>
             </div>
           </div>
           <div class="schema-card">
@@ -99,6 +101,7 @@
         </div>
 
         <div id="mapping-report" class="mapping-report hidden"></div>
+        <div id="monitoring-report" class="mapping-report hidden"></div>
 
         <div id="uploaded-summary" class="cards compact hidden" aria-label="Uploaded file summary">
           <article class="card">
@@ -125,7 +128,10 @@
               <p class="eyebrow">Generated action queue</p>
               <h2>Uploaded accounts to work first</h2>
             </div>
-            <button id="download-scored" class="button primary" type="button">Download scored CSV</button>
+            <div class="upload-actions">
+              <button id="download-scored" class="button primary" type="button">Download scored CSV</button>
+              <button id="download-crm" class="button secondary" type="button">Export CRM tasks</button>
+            </div>
           </div>
           <div class="table-wrap">
             <table>
@@ -142,6 +148,37 @@
               <tbody id="uploaded-table"></tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <section id="history" class="panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Database-style local workflow</p>
+            <h2>Saved batches and action outcomes</h2>
+          </div>
+          <p>
+            Uploads are stored in this browser only. This protects demo customer data
+            while still showing scoring history, action status, and before/after outcomes.
+          </p>
+        </div>
+        <div class="upload-actions">
+          <button id="clear-history" class="button secondary" type="button">Clear local history</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Batch</th>
+                <th>Rows</th>
+                <th>High risk</th>
+                <th>Revenue at risk</th>
+                <th>Created</th>
+                <th>Outcome</th>
+              </tr>
+            </thead>
+            <tbody id="history-table"></tbody>
+          </table>
         </div>
       </section>
 
@@ -213,6 +250,8 @@
             <li>Model: class-balanced logistic regression with encoded categorical features.</li>
             <li>Primary guardrail: favor churn recall over raw accuracy.</li>
             <li>Deployment bundle: JSON coefficients, feature schema, thresholds, and metrics.</li>
+            <li>Privacy: CSV scoring happens in-browser; saved batches stay in local browser storage.</li>
+            <li>Safety: recommendations should be reviewed before contacting customers.</li>
           </ul>
         </div>
         <div>

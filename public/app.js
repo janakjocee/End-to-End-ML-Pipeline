@@ -15,13 +15,22 @@ const uploadStatus = document.querySelector("#upload-status");
 const uploadResults = document.querySelector("#upload-results");
 const uploadedSummary = document.querySelector("#uploaded-summary");
 const downloadButton = document.querySelector("#download-scored");
+const downloadCrmButton = document.querySelector("#download-crm");
 const mappingReport = document.querySelector("#mapping-report");
+const monitoringReport = document.querySelector("#monitoring-report");
+const historyTable = document.querySelector("#history-table");
+const clearHistoryButton = document.querySelector("#clear-history");
 const state = {
   bundle: null,
   customers: [],
   summary: null,
   uploaded: [],
+  rawRecords: [],
+  inference: null,
+  history: [],
 };
+
+const historyKey = "churn-command-center:batches";
 
 const columnAliases = {
   customer_id: ["customerid", "customer", "id", "accountid", "accountnumber", "clientid", "subscriberid"],
@@ -273,12 +282,33 @@ function scoreUploadedRecords(records, inference) {
         customer_id: inference.customerId ? record[inference.customerId] : `uploaded-${index + 1}`,
         features,
         score,
+        action_status: "Not started",
+        outcome: "Pending",
       };
     })
     .sort((a, b) => b.score.revenue_at_risk - a.score.revenue_at_risk);
 }
 
+function scoreUploadedRecordsAsync(records, inference) {
+  if (!window.Worker || records.length < 100) {
+    return Promise.resolve(scoreUploadedRecords(records, inference));
+  }
+  return new Promise((resolve, reject) => {
+    const worker = new Worker("/scoring-worker.js");
+    worker.onmessage = (event) => {
+      worker.terminate();
+      resolve(event.data.scored);
+    };
+    worker.onerror = (error) => {
+      worker.terminate();
+      reject(error);
+    };
+    worker.postMessage({ bundle: state.bundle, records, inference });
+  });
+}
+
 function renderMappingReport(inference) {
+  const headers = Object.keys(state.rawRecords[0] || {});
   const mapped = Object.entries(inference.mapping).map(([feature, column]) => `${feature} ← ${column}`);
   const defaults = inference.defaults.map((feature) => `${feature}=${state.bundle.schema[feature].default}`);
   mappingReport.classList.remove("hidden");
@@ -290,6 +320,77 @@ function renderMappingReport(inference) {
         ? `<div><strong>Defaults used:</strong> ${defaults.slice(0, 10).join(", ")}${defaults.length > 10 ? `, +${defaults.length - 10} more` : ""}</div>`
         : "<div><strong>Defaults used:</strong> none</div>"
     }
+    <details>
+      <summary>Edit mapping manually</summary>
+      <div class="mapping-editor">
+        ${Object.keys(state.bundle.schema)
+          .map(
+            (feature) => `
+              <label>${feature.replaceAll("_", " ")}
+                <select data-map-feature="${feature}">
+                  <option value="">Use default (${state.bundle.schema[feature].default})</option>
+                  ${headers
+                    .map(
+                      (header) =>
+                        `<option value="${header}" ${inference.mapping[feature] === header ? "selected" : ""}>${header}</option>`,
+                    )
+                    .join("")}
+                </select>
+              </label>
+            `,
+          )
+          .join("")}
+      </div>
+      <button id="apply-mapping" class="button secondary" type="button">Apply mapping</button>
+    </details>
+  `;
+  document.querySelector("#apply-mapping")?.addEventListener("click", applyManualMapping);
+}
+
+async function applyManualMapping() {
+  const mapping = {};
+  mappingReport.querySelectorAll("[data-map-feature]").forEach((select) => {
+    if (select.value) mapping[select.dataset.mapFeature] = select.value;
+  });
+  state.inference = {
+    ...state.inference,
+    mapping,
+    defaults: Object.keys(state.bundle.schema).filter((feature) => !mapping[feature]),
+  };
+  uploadStatus.className = "status-message";
+  uploadStatus.textContent = "Re-scoring with manual mapping...";
+  state.uploaded = await scoreUploadedRecordsAsync(state.rawRecords, state.inference);
+  uploadStatus.className = "status-message success";
+  uploadStatus.textContent = `Re-scored ${state.uploaded.length.toLocaleString()} rows with your mapping.`;
+  renderMappingReport(state.inference);
+  renderMonitoringReport();
+  renderUploadSummary(state.uploaded);
+  renderUploadedTable();
+  saveCurrentBatch("Manual mapping update");
+}
+
+function renderMonitoringReport() {
+  if (!state.uploaded.length) return;
+  const alerts = [];
+  Object.entries(state.bundle.schema)
+    .filter(([, spec]) => spec.type === "numeric")
+    .forEach(([feature, spec]) => {
+      const values = state.uploaded.map((row) => Number(row.features[feature])).filter(Number.isFinite);
+      const mean = values.reduce((sum, value) => sum + value, 0) / Math.max(values.length, 1);
+      const z = spec.scale ? Math.abs((mean - spec.mean) / spec.scale) : 0;
+      if (z >= 0.75) alerts.push(`${feature} shifted ${z.toFixed(2)} standard deviations`);
+    });
+  const summary = summarizeRows(state.uploaded);
+  if (Math.abs(summary.high_risk_share - state.summary.high_risk_share) >= 0.2) {
+    alerts.push(`high-risk share changed from ${percent.format(state.summary.high_risk_share)} to ${percent.format(summary.high_risk_share)}`);
+  }
+  monitoringReport.classList.remove("hidden");
+  monitoringReport.innerHTML = `
+    <div><strong>Monitoring:</strong> ${alerts.length ? "review recommended before acting" : "uploaded file looks close to training profile"}</div>
+    <div class="mapping-chips">
+      <span class="mapping-chip">Prediction mix: ${summary.risk_counts.high} high / ${summary.risk_counts.medium} medium / ${summary.risk_counts.low} low</span>
+      ${alerts.slice(0, 4).map((alert) => `<span class="mapping-chip">${alert}</span>`).join("")}
+    </div>
   `;
 }
 
@@ -300,6 +401,60 @@ function renderUploadSummary(rows) {
   document.querySelector("#upload-high-risk").textContent = percent.format(summary.high_risk_share);
   document.querySelector("#upload-rar").textContent = money.format(summary.revenue_at_risk);
   document.querySelector("#upload-net").textContent = money.format(summary.expected_net_value);
+}
+
+function loadHistory() {
+  state.history = JSON.parse(localStorage.getItem(historyKey) || "[]");
+}
+
+function persistHistory() {
+  localStorage.setItem(historyKey, JSON.stringify(state.history.slice(0, 15)));
+}
+
+function saveCurrentBatch(label) {
+  if (!state.uploaded.length) return;
+  const summary = summarizeRows(state.uploaded);
+  const batch = {
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    label,
+    created_at: new Date().toISOString(),
+    summary,
+    rows: state.uploaded.slice(0, 100),
+    outcome: "Pending review",
+  };
+  state.history = [batch, ...state.history].slice(0, 15);
+  persistHistory();
+  renderHistory();
+}
+
+function renderHistory() {
+  historyTable.innerHTML = state.history
+    .map(
+      (batch) => `
+        <tr>
+          <td>${batch.label}</td>
+          <td>${batch.summary.customers_scored.toLocaleString()}</td>
+          <td>${percent.format(batch.summary.high_risk_share)}</td>
+          <td>${money.format(batch.summary.revenue_at_risk)}</td>
+          <td>${new Date(batch.created_at).toLocaleString()}</td>
+          <td>
+            <select data-history-outcome="${batch.id}">
+              ${["Pending review", "Campaign launched", "Customers contacted", "Churn reduced", "No improvement"]
+                .map((value) => `<option value="${value}" ${batch.outcome === value ? "selected" : ""}>${value}</option>`)
+                .join("")}
+            </select>
+          </td>
+        </tr>
+      `,
+    )
+    .join("");
+  historyTable.querySelectorAll("[data-history-outcome]").forEach((select) => {
+    select.addEventListener("change", () => {
+      const batch = state.history.find((item) => item.id === select.dataset.historyOutcome);
+      if (batch) batch.outcome = select.value;
+      persistHistory();
+    });
+  });
 }
 
 function renderUploadedTable() {
@@ -313,11 +468,25 @@ function renderUploadedTable() {
           <td>${percent.format(customer.score.churn_probability)}</td>
           <td>${money.format(customer.score.revenue_at_risk)}</td>
           <td>${money.format(customer.score.expected_net_value)}</td>
-          <td>${customer.score.recommended_action}</td>
+          <td>
+            <strong>${customer.score.recommended_action}</strong>
+            <select data-status="${customer.customer_id}">
+              ${["Not started", "Queued", "Contacted", "Offer sent", "Retained", "Lost"]
+                .map((status) => `<option value="${status}" ${customer.action_status === status ? "selected" : ""}>${status}</option>`)
+                .join("")}
+            </select>
+          </td>
         </tr>
       `,
     )
     .join("");
+  document.querySelector("#uploaded-table").querySelectorAll("[data-status]").forEach((select) => {
+    select.addEventListener("change", () => {
+      const row = state.uploaded.find((item) => item.customer_id === select.dataset.status);
+      if (row) row.action_status = select.value;
+      saveCurrentBatch("Action status update");
+    });
+  });
 }
 
 function escapeCsv(value) {
@@ -366,6 +535,33 @@ function downloadScoredCsv() {
   URL.revokeObjectURL(url);
 }
 
+function downloadCrmCsv() {
+  const headers = ["task_name", "customer_id", "priority", "action", "revenue_at_risk", "status", "notes"];
+  const lines = [
+    headers.join(","),
+    ...state.uploaded.map((row) =>
+      [
+        `Call ${row.customer_id} about churn risk`,
+        row.customer_id,
+        row.score.action_priority,
+        row.score.recommended_action,
+        row.score.revenue_at_risk,
+        row.action_status,
+        `Top drivers: ${row.score.top_drivers.map((driver) => driver.feature).join(" | ")}`,
+      ]
+        .map(escapeCsv)
+        .join(","),
+    ),
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "crm-retention-tasks.csv";
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 async function handleUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -374,20 +570,26 @@ async function handleUpload(event) {
     uploadStatus.className = "status-message";
     uploadStatus.textContent = `Reading ${file.name}...`;
     const records = parseCsv(await file.text());
+    state.rawRecords = records;
     const inference = inferColumnMapping(Object.keys(records[0]));
-    state.uploaded = scoreUploadedRecords(records, inference);
+    state.inference = inference;
+    uploadStatus.textContent = `Scoring ${records.length.toLocaleString()} rows...`;
+    state.uploaded = await scoreUploadedRecordsAsync(records, inference);
     uploadStatus.className = "status-message success";
     uploadStatus.textContent =
       `Scored ${state.uploaded.length.toLocaleString()} rows with ${Object.keys(inference.mapping).length} detected fields and ${inference.defaults.length} defaults. Showing the top 25 accounts by revenue at risk.`;
     renderMappingReport(inference);
+    renderMonitoringReport();
     renderUploadSummary(state.uploaded);
     renderUploadedTable();
     uploadResults.classList.remove("hidden");
+    saveCurrentBatch(file.name);
   } catch (error) {
     state.uploaded = [];
     uploadedSummary.classList.add("hidden");
     uploadResults.classList.add("hidden");
     mappingReport.classList.add("hidden");
+    monitoringReport.classList.add("hidden");
     uploadStatus.className = "status-message error-text";
     uploadStatus.textContent = error.message;
   }
@@ -468,7 +670,7 @@ function renderSchemaHelp() {
     return `${name} (${spec.values.join(" | ")})`;
   });
   document.querySelector("#schema-columns").textContent =
-    `Best results include: ${required.join(", ")}. Missing fields are filled with model defaults; similar column names are auto-detected.`;
+    `Best results include: ${required.join(", ")}. Missing fields are filled with model defaults; similar column names are auto-detected and editable.`;
 }
 
 function renderTable() {
@@ -501,9 +703,17 @@ async function load() {
   renderSchemaHelp();
   renderForm();
   renderTable();
+  loadHistory();
+  renderHistory();
   updateScore();
   upload.addEventListener("change", handleUpload);
   downloadButton.addEventListener("click", downloadScoredCsv);
+  downloadCrmButton.addEventListener("click", downloadCrmCsv);
+  clearHistoryButton.addEventListener("click", () => {
+    state.history = [];
+    persistHistory();
+    renderHistory();
+  });
 }
 
 load().catch((error) => {
