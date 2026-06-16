@@ -1,0 +1,7 @@
+customer_id,senior_citizen,tenure,monthly_charges,total_charges,gender,partner,dependents,phone_service,multiple_lines,internet_service,online_security,online_backup,device_protection,tech_support,streaming_tv,streaming_movies,contract,paperless_billing,payment_method
+C-1001,1,8,104.85,838.8,Female,No,No,Yes,Yes,Fiber optic,No,No,No,No,Yes,Yes,Month-to-month,Yes,Electronic check
+C-1002,0,64,78.2,5004.8,Male,Yes,No,Yes,Yes,DSL,Yes,Yes,Yes,Yes,No,No,Two year,No,Credit card
+C-1003,0,15,89.5,1342.5,Female,No,No,Yes,No,Fiber optic,No,Yes,No,No,Yes,No,Month-to-month,Yes,Bank transfer
+C-1004,0,33,44.9,1481.7,Male,Yes,Yes,Yes,No,DSL,Yes,No,Yes,No,No,No,One year,No,Mailed check
+C-1005,1,3,95.4,286.2,Female,No,No,Yes,Yes,Fiber optic,No,No,No,No,Yes,Yes,Month-to-month,Yes,Electronic check
+C-1006,0,72,25.35,1825.2,Male,Yes,Yes,No,No phone service,No,No internet service,No internet service,No internet service,No internet service,No internet service,No internet service,Two year,No,Bank transfer

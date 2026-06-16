@@ -10,10 +10,16 @@ const percent = new Intl.NumberFormat("en-US", {
 });
 
 const form = document.querySelector("#score-form");
+const upload = document.querySelector("#csv-upload");
+const uploadStatus = document.querySelector("#upload-status");
+const uploadResults = document.querySelector("#upload-results");
+const uploadedSummary = document.querySelector("#uploaded-summary");
+const downloadButton = document.querySelector("#download-scored");
 const state = {
   bundle: null,
   customers: [],
   summary: null,
+  uploaded: [],
 };
 
 function sigmoid(value) {
@@ -120,6 +126,208 @@ export function scoreCustomer(bundle, features) {
   };
 }
 
+function summarizeRows(rows) {
+  const riskCounts = { high: 0, medium: 0, low: 0 };
+  let revenueAtRisk = 0;
+  let expectedNetValue = 0;
+
+  rows.forEach((row) => {
+    riskCounts[row.score.risk_band] += 1;
+    revenueAtRisk += row.score.revenue_at_risk;
+    expectedNetValue += row.score.expected_net_value;
+  });
+
+  return {
+    customers_scored: rows.length,
+    risk_counts: riskCounts,
+    high_risk_share: rows.length ? riskCounts.high / rows.length : 0,
+    revenue_at_risk: revenueAtRisk,
+    expected_net_value: expectedNetValue,
+  };
+}
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+    if (char === '"' && quoted && next === '"') {
+      cell += '"';
+      index += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === "," && !quoted) {
+      row.push(cell.trim());
+      cell = "";
+    } else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && next === "\n") index += 1;
+      row.push(cell.trim());
+      if (row.some((value) => value !== "")) rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += char;
+    }
+  }
+  row.push(cell.trim());
+  if (row.some((value) => value !== "")) rows.push(row);
+
+  if (rows.length < 2) {
+    throw new Error("CSV needs a header row and at least one customer row.");
+  }
+
+  const headers = rows[0].map((header) => header.trim());
+  return rows.slice(1).map((values) =>
+    Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""])),
+  );
+}
+
+function validateRecords(records) {
+  const required = Object.keys(state.bundle.schema);
+  const present = new Set(Object.keys(records[0] || {}));
+  const missing = required.filter((name) => !present.has(name));
+  if (missing.length) {
+    throw new Error(`Missing required columns: ${missing.join(", ")}`);
+  }
+
+  const errors = [];
+  records.forEach((record, rowIndex) => {
+    required.forEach((name) => {
+      const spec = state.bundle.schema[name];
+      const value = record[name];
+      if (spec.type === "numeric" && Number.isNaN(Number(value))) {
+        errors.push(`row ${rowIndex + 2}: ${name} must be numeric`);
+      }
+      if (spec.type === "categorical" && !spec.values.includes(String(value))) {
+        errors.push(`row ${rowIndex + 2}: ${name} must be one of ${spec.values.join(" / ")}`);
+      }
+    });
+  });
+
+  if (errors.length) {
+    throw new Error(errors.slice(0, 5).join("; ") + (errors.length > 5 ? `; +${errors.length - 5} more` : ""));
+  }
+}
+
+function scoreUploadedRecords(records) {
+  return records
+    .map((record, index) => {
+      const features = {};
+      Object.entries(state.bundle.schema).forEach(([name, spec]) => {
+        features[name] = spec.type === "numeric" ? Number(record[name]) : String(record[name]);
+      });
+      const score = scoreCustomer(state.bundle, features);
+      return {
+        customer_id: record.customer_id || `uploaded-${index + 1}`,
+        features,
+        score,
+      };
+    })
+    .sort((a, b) => b.score.revenue_at_risk - a.score.revenue_at_risk);
+}
+
+function renderUploadSummary(rows) {
+  const summary = summarizeRows(rows);
+  uploadedSummary.classList.remove("hidden");
+  document.querySelector("#upload-rows").textContent = summary.customers_scored.toLocaleString();
+  document.querySelector("#upload-high-risk").textContent = percent.format(summary.high_risk_share);
+  document.querySelector("#upload-rar").textContent = money.format(summary.revenue_at_risk);
+  document.querySelector("#upload-net").textContent = money.format(summary.expected_net_value);
+}
+
+function renderUploadedTable() {
+  document.querySelector("#uploaded-table").innerHTML = state.uploaded
+    .slice(0, 25)
+    .map(
+      (customer) => `
+        <tr>
+          <td>${customer.customer_id}</td>
+          <td><span class="badge ${customer.score.risk_band}">${customer.score.risk_band}</span></td>
+          <td>${percent.format(customer.score.churn_probability)}</td>
+          <td>${money.format(customer.score.revenue_at_risk)}</td>
+          <td>${money.format(customer.score.expected_net_value)}</td>
+          <td>${customer.score.recommended_action}</td>
+        </tr>
+      `,
+    )
+    .join("");
+}
+
+function escapeCsv(value) {
+  const text = String(value ?? "");
+  return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+function downloadScoredCsv() {
+  const headers = [
+    "customer_id",
+    ...Object.keys(state.bundle.schema),
+    "churn_probability",
+    "risk_band",
+    "revenue_at_risk",
+    "expected_net_value",
+    "recommended_action",
+    "top_driver_1",
+    "top_driver_2",
+    "top_driver_3",
+  ];
+  const lines = [
+    headers.join(","),
+    ...state.uploaded.map((row) => {
+      const drivers = row.score.top_drivers.slice(0, 3).map((driver) => driver.feature);
+      const values = [
+        row.customer_id,
+        ...Object.keys(state.bundle.schema).map((name) => row.features[name]),
+        row.score.churn_probability,
+        row.score.risk_band,
+        row.score.revenue_at_risk,
+        row.score.expected_net_value,
+        row.score.recommended_action,
+        drivers[0] || "",
+        drivers[1] || "",
+        drivers[2] || "",
+      ];
+      return values.map(escapeCsv).join(",");
+    }),
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "scored-churn-action-queue.csv";
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+async function handleUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  try {
+    uploadStatus.className = "status-message";
+    uploadStatus.textContent = `Reading ${file.name}...`;
+    const records = parseCsv(await file.text());
+    validateRecords(records);
+    state.uploaded = scoreUploadedRecords(records);
+    uploadStatus.className = "status-message success";
+    uploadStatus.textContent =
+      `Scored ${state.uploaded.length.toLocaleString()} rows. Showing the top 25 accounts by revenue at risk.`;
+    renderUploadSummary(state.uploaded);
+    renderUploadedTable();
+    uploadResults.classList.remove("hidden");
+  } catch (error) {
+    state.uploaded = [];
+    uploadedSummary.classList.add("hidden");
+    uploadResults.classList.add("hidden");
+    uploadStatus.className = "status-message error-text";
+    uploadStatus.textContent = error.message;
+  }
+}
+
 function readForm() {
   const data = new FormData(form);
   const features = {};
@@ -189,6 +397,14 @@ function renderSummary() {
   document.querySelector("#expected-net-value").textContent = money.format(summary.expected_net_value);
 }
 
+function renderSchemaHelp() {
+  const required = Object.entries(state.bundle.schema).map(([name, spec]) => {
+    if (spec.type === "numeric") return `${name} (number)`;
+    return `${name} (${spec.values.join(" | ")})`;
+  });
+  document.querySelector("#schema-columns").textContent = `customer_id optional, then ${required.join(", ")}`;
+}
+
 function renderTable() {
   document.querySelector("#customer-table").innerHTML = state.customers
     .slice(0, 12)
@@ -216,9 +432,12 @@ async function load() {
   state.customers = customers;
   state.summary = summary;
   renderSummary();
+  renderSchemaHelp();
   renderForm();
   renderTable();
   updateScore();
+  upload.addEventListener("change", handleUpload);
+  downloadButton.addEventListener("click", downloadScoredCsv);
 }
 
 load().catch((error) => {

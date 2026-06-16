@@ -9,8 +9,12 @@ const required = [
   "public/model_bundle.json",
   "public/customer_scores.json",
   "public/business_summary.json",
+  "public/sample-customers.csv",
   "public/demo-pipeline-results.png",
   "public/data-drift-comparison.png",
+  "api/score.js",
+  "api/batch-score.js",
+  "api/scoring.js",
 ];
 
 for (const relative of required) {
@@ -36,4 +40,25 @@ if (summary.revenue_at_risk <= 0 || summary.customers_scored !== customers.lengt
   throw new Error("Business summary does not match scored customer artifacts.");
 }
 
-console.log(`Verified web app assets for ${customers.length} scored customers.`);
+const { scoreCustomer, scoreBatch } = await import("../api/scoring.js");
+const sample = {
+  tenure: 12,
+  monthly_charges: 95,
+  total_charges: 1140,
+  contract: "Month-to-month",
+  payment_method: "Electronic check",
+  internet_service: "Fiber optic",
+  online_security: "No",
+  tech_support: "No",
+};
+const score = scoreCustomer(sample);
+if (score.risk_band !== "high" || score.recommended_action !== "Targeted save offer") {
+  throw new Error("Single-customer scoring smoke test failed.");
+}
+
+const batch = scoreBatch([sample, customers[0].features]);
+if (batch.summary.customers_scored !== 2 || batch.scored.length !== 2) {
+  throw new Error("Batch scoring smoke test failed.");
+}
+
+console.log(`Verified web app assets, single scoring, and batch scoring for ${customers.length} demo customers.`);
