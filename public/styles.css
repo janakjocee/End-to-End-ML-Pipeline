@@ -299,6 +299,91 @@ footer,
   margin: 1rem 0;
 }
 
+.insight-panel {
+  margin-top: 1.25rem;
+}
+
+.chart-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.live-chart-card {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 1.1rem;
+  padding: 1rem;
+}
+
+.live-chart-card h3 {
+  font-size: 1.35rem;
+  margin-bottom: 1rem;
+}
+
+.bar-chart,
+.histogram {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.bar-row {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.bar-label {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 0.85rem;
+  justify-content: space-between;
+}
+
+.bar-track {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  height: 0.8rem;
+  overflow: hidden;
+}
+
+.bar-fill {
+  background: linear-gradient(90deg, var(--brand), var(--brand-2));
+  border-radius: inherit;
+  height: 100%;
+  min-width: 0.35rem;
+}
+
+.histogram {
+  align-items: end;
+  display: flex;
+  gap: 0.45rem;
+  min-height: 11rem;
+}
+
+.histogram-bin {
+  align-items: center;
+  display: grid;
+  flex: 1;
+  gap: 0.35rem;
+  grid-template-rows: 1fr auto;
+  min-width: 0;
+}
+
+.histogram-bar {
+  align-self: end;
+  background: linear-gradient(180deg, var(--brand), var(--brand-2));
+  border-radius: 0.5rem 0.5rem 0 0;
+  min-height: 0.4rem;
+  width: 100%;
+}
+
+.histogram-bin span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
 summary {
   cursor: pointer;
   font-weight: 800;
@@ -448,7 +533,8 @@ footer {
   .split,
   .form,
   .upload-grid,
-  .mapping-editor {
+  .mapping-editor,
+  .chart-grid {
     grid-template-columns: 1fr;
   }
 

@@ -32,9 +32,9 @@ The deployed dashboard presents the project as a usable customer-success workflo
 
 ![Customer Churn Command Center dashboard](docs/assets/app-dashboard.png)
 
-The upload workflow supports Telco-style CSV files, dynamic column mapping, monitoring warnings, saved local history, action status tracking, and CRM/task export.
+The upload workflow supports Telco-style CSV files, dynamic column mapping, live uploaded-data charts, monitoring warnings, saved local history, action status tracking, and CRM/task export.
 
-![CSV upload, mapping, monitoring, and action queue](docs/assets/app-upload-workflow.png)
+![CSV upload, mapping, live charts, monitoring, and action queue](docs/assets/app-upload-workflow.png)
 
 ## What Makes It Practical
 
@@ -145,6 +145,7 @@ Browser workflow features:
 - local saved upload history
 - action status and outcome tracking
 - input/prediction drift warnings
+- live charts from the current demo or uploaded dataset
 - scored CSV export
 - CRM/task-board CSV export
 - Web Worker scoring for larger browser uploads
@@ -304,7 +305,7 @@ npm run build
 
 ## Current Scope
 
-The web app is practical for a portfolio/demo and can be hosted. It includes dynamic CSV upload, editable mapping, local batch history, action tracking, drift warnings, CRM/task export, model selection evidence, and deployed APIs. Before using it for real customer decisions, add organization authentication, managed database persistence, consent/compliance checks, live CRM API credentials, post-intervention outcome ingestion, fairness review on real protected classes, model recalibration, and production observability.
+The web app is practical for a portfolio/demo and can be hosted. It includes dynamic CSV upload, editable mapping, uploaded-data charts, local batch history, action tracking, drift warnings, CRM/task export, model selection evidence, and deployed APIs. Before using it for real customer decisions, add organization authentication, managed database persistence, consent/compliance checks, live CRM API credentials, post-intervention outcome ingestion, fairness review on real protected classes, model recalibration, and production observability.
 
 ## License
 

@@ -7,7 +7,7 @@
 - Model comparison with 5-fold cross-validation across logistic regression, calibrated logistic regression, and random forest.
 - Business threshold tuning by expected retention net value.
 - Lightweight JSON model bundle for Vercel serverless scoring.
-- Deployed dashboard with dynamic CSV upload, editable column mapping, Telco-style sample support, local batch history, action status tracking, outcome tracking, drift warnings, Web Worker scoring, scored CSV export, and CRM/task CSV export.
+- Deployed dashboard with dynamic CSV upload, editable column mapping, Telco-style sample support, uploaded-data charts, local batch history, action status tracking, outcome tracking, drift warnings, Web Worker scoring, scored CSV export, and CRM/task CSV export.
 - Serverless APIs for single-customer and batch scoring.
 - Governance docs: model card, data card, system design, deployment reference, and this completion report.
 - CI checks for compile, lint, tests, demo generation, web assets, scoring smoke tests, and Compose configuration.

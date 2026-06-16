@@ -198,6 +198,76 @@ function summarizeRows(rows) {
   };
 }
 
+function countBy(rows, getter) {
+  return rows.reduce((counts, row) => {
+    const key = getter(row) || "Unknown";
+    counts[key] = (counts[key] || 0) + 1;
+    return counts;
+  }, {});
+}
+
+function sumBy(rows, getter, valueGetter) {
+  return rows.reduce((totals, row) => {
+    const key = getter(row) || "Unknown";
+    totals[key] = (totals[key] || 0) + Number(valueGetter(row) || 0);
+    return totals;
+  }, {});
+}
+
+function renderBarChart(elementId, values, formatter = (value) => value.toLocaleString()) {
+  const element = document.querySelector(elementId);
+  const entries = Object.entries(values).sort((a, b) => b[1] - a[1]);
+  const max = Math.max(...entries.map(([, value]) => value), 1);
+  element.innerHTML = entries
+    .map(([label, value]) => {
+      const width = Math.max((value / max) * 100, 3);
+      return `
+        <div class="bar-row">
+          <div class="bar-label"><span>${label}</span><strong>${formatter(value)}</strong></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderProbabilityHistogram(rows) {
+  const bins = Array.from({ length: 10 }, (_, index) => ({
+    label: `${index * 10}-${index * 10 + 10}%`,
+    count: 0,
+  }));
+  rows.forEach((row) => {
+    const index = Math.min(Math.floor(row.score.churn_probability * 10), 9);
+    bins[index].count += 1;
+  });
+  const max = Math.max(...bins.map((bin) => bin.count), 1);
+  document.querySelector("#probability-chart").innerHTML = bins
+    .map(
+      (bin) => `
+        <div class="histogram-bin" title="${bin.label}: ${bin.count}">
+          <div class="histogram-bar" style="height:${Math.max((bin.count / max) * 100, 4)}%"></div>
+          <span>${bin.label}</span>
+        </div>
+      `,
+    )
+    .join("");
+}
+
+function renderLiveCharts(rows, label = "generated demo data") {
+  if (!rows.length) return;
+  document.querySelector("#chart-heading").textContent = `Charts from ${label}`;
+  document.querySelector("#chart-subtitle").textContent =
+    `${rows.length.toLocaleString()} rows scored. Charts redraw whenever a file is uploaded or mapping is changed.`;
+  renderBarChart("#risk-chart", countBy(rows, (row) => row.score.risk_band));
+  renderBarChart("#action-chart", countBy(rows, (row) => row.score.recommended_action));
+  renderProbabilityHistogram(rows);
+  renderBarChart(
+    "#revenue-action-chart",
+    sumBy(rows, (row) => row.score.recommended_action, (row) => row.score.revenue_at_risk),
+    money.format,
+  );
+}
+
 function parseCsv(text) {
   const rows = [];
   let row = [];
@@ -366,6 +436,7 @@ async function applyManualMapping() {
   renderMonitoringReport();
   renderUploadSummary(state.uploaded);
   renderUploadedTable();
+  renderLiveCharts(state.uploaded, "your remapped CSV");
   saveCurrentBatch("Manual mapping update");
 }
 
@@ -595,6 +666,7 @@ async function processUploadedCsv(text, label) {
   renderMonitoringReport();
   renderUploadSummary(state.uploaded);
   renderUploadedTable();
+  renderLiveCharts(state.uploaded, label);
   uploadResults.classList.remove("hidden");
   saveCurrentBatch(label);
 }
@@ -717,6 +789,7 @@ async function load() {
   renderSchemaHelp();
   renderForm();
   renderTable();
+  renderLiveCharts(state.customers, "generated demo data");
   loadHistory();
   renderHistory();
   updateScore();
