@@ -30,7 +30,7 @@ flowchart LR
 
 | Capability | Why it matters |
 |---|---|
-| CSV upload scoring | Customer-success users can upload a customer file and get a prioritized action queue. |
+| Dynamic CSV upload scoring | Customer-success users can upload imperfect customer files, auto-map columns, and get a prioritized action queue. |
 | Interactive scoring | Users can still test one account scenario without notebooks. |
 | Revenue at risk | The model output is tied to a business decision, not just a probability. |
 | Next-best action | Each score maps to an intervention, estimated cost, and expected lift. |
@@ -93,7 +93,8 @@ artifacts/demo/business_summary.json  # portfolio value summary
 docs/assets/demo-pipeline-results.png # regenerated README result image
 docs/assets/data-drift-comparison.png # regenerated drift scenario image
 public/*.json                         # web app data artifacts
-public/sample-customers.csv           # upload-ready example customer file
+public/sample-customers.csv           # schema-aligned example customer file
+public/sample-flexible-customers.csv  # messy real-world-style example with alternate column names
 ```
 
 Run individual commands without `make`:
@@ -113,7 +114,9 @@ npm run build
 npx vercel dev
 ```
 
-Open the local URL that Vercel prints. The dashboard loads from `public/`, supports CSV upload in the browser, and exposes scoring endpoints at `POST /api/score` and `POST /api/batch-score`.
+Open the local URL that Vercel prints. The dashboard loads from `public/`, supports dynamic CSV upload in the browser, and exposes scoring endpoints at `POST /api/score` and `POST /api/batch-score`.
+
+The CSV uploader does not require perfect model column names. It auto-detects common variations such as `MonthlyCharge`, `Monthly Fee`, `Months Active`, `Plan`, `Payment Method`, and `Account ID`. Missing model fields are filled with the model bundle defaults and shown in the mapping report before the scored action queue.
 
 Example API request:
 
@@ -142,15 +145,15 @@ curl -X POST http://localhost:3000/api/batch-score \
   -d '{
     "records": [
       {
-        "customer_id": "C-1001",
-        "tenure": 12,
-        "monthly_charges": 95,
-        "total_charges": 1140,
-        "contract": "Month-to-month",
-        "payment_method": "Electronic check",
-        "internet_service": "Fiber optic",
-        "online_security": "No",
-        "tech_support": "No"
+        "Account ID": "C-1001",
+        "Months Active": 12,
+        "MonthlyCharge": 95,
+        "LTV": 1140,
+        "Plan": "Month-to-month",
+        "Payment Method": "Electronic check",
+        "Internet Type": "Fiber optic",
+        "Security": "No",
+        "Support": "No"
       }
     ]
   }'

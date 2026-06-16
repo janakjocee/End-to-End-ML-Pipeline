@@ -1,0 +1,4 @@
+Account ID,Months Active,MonthlyCharge,LTV,Sex,Plan,Payment Method,Internet Type,Security,Support
+ACME-001,7,105.2,736.4,Female,Month-to-month,Electronic check,Fiber optic,No,No
+ACME-002,52,72.4,3764.8,Male,Two year,Credit card,DSL,Yes,Yes
+ACME-003,18,88.9,1600.2,Female,Month-to-month,Bank transfer,Fiber optic,No,No
