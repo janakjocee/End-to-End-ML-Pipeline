@@ -9,30 +9,33 @@ import joblib
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
     accuracy_score,
+    brier_score_loss,
     f1_score,
     precision_score,
     recall_score,
     roc_auc_score,
 )
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedKFold, cross_validate, train_test_split
 from sklearn.pipeline import Pipeline
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from shared.churn_business import score_customer, summarize_portfolio
 from scripts.generate_sample_data import generate_churn_dataset
 
 
-def build_pipeline(data: pd.DataFrame) -> Pipeline:
-    """Build a preprocessing and classification pipeline."""
+def build_preprocessor(data: pd.DataFrame) -> ColumnTransformer:
+    """Build feature preprocessing from the training dataframe."""
     features = data.drop(columns=["customer_id", "churn"])
     numeric = features.select_dtypes(include="number").columns.tolist()
     categorical = features.select_dtypes(exclude="number").columns.tolist()
 
-    preprocessor = ColumnTransformer(
+    return ColumnTransformer(
         transformers=[
             ("numeric", StandardScaler(), numeric),
             (
@@ -42,6 +45,11 @@ def build_pipeline(data: pd.DataFrame) -> Pipeline:
             ),
         ]
     )
+
+
+def build_pipeline(data: pd.DataFrame) -> Pipeline:
+    """Build the production preprocessing and classification pipeline."""
+    preprocessor = build_preprocessor(data)
     return Pipeline(
         steps=[
             ("preprocessor", preprocessor),
@@ -58,6 +66,50 @@ def build_pipeline(data: pd.DataFrame) -> Pipeline:
     )
 
 
+def build_candidate_models(data: pd.DataFrame) -> dict[str, Pipeline]:
+    """Build candidate models for model selection reporting."""
+    logistic = build_pipeline(data)
+    calibrated = Pipeline(
+        steps=[
+            ("preprocessor", build_preprocessor(data)),
+            (
+                "classifier",
+                CalibratedClassifierCV(
+                    estimator=LogisticRegression(
+                        class_weight="balanced",
+                        max_iter=1000,
+                        random_state=42,
+                        solver="liblinear",
+                    ),
+                    cv=3,
+                    method="sigmoid",
+                ),
+            ),
+        ]
+    )
+    forest = Pipeline(
+        steps=[
+            ("preprocessor", build_preprocessor(data)),
+            (
+                "classifier",
+                RandomForestClassifier(
+                    class_weight="balanced_subsample",
+                    max_depth=8,
+                    min_samples_leaf=20,
+                    n_estimators=160,
+                    n_jobs=-1,
+                    random_state=42,
+                ),
+            ),
+        ]
+    )
+    return {
+        "production_logistic": logistic,
+        "calibrated_logistic": calibrated,
+        "random_forest": forest,
+    }
+
+
 def evaluate(model: Pipeline, data: pd.DataFrame) -> dict:
     """Evaluate a fitted model on a labeled dataset."""
     features = data.drop(columns=["customer_id", "churn"])
@@ -72,6 +124,79 @@ def evaluate(model: Pipeline, data: pd.DataFrame) -> dict:
         "recall": round(float(recall_score(target, predictions, zero_division=0)), 4),
         "f1": round(float(f1_score(target, predictions, zero_division=0)), 4),
         "roc_auc": round(float(roc_auc_score(target, probabilities)), 4),
+        "brier": round(float(brier_score_loss(target, probabilities)), 4),
+    }
+
+
+def evaluate_model_candidates(train_data: pd.DataFrame, test_data: pd.DataFrame) -> tuple[dict, Pipeline]:
+    """Run cross-validation and holdout evaluation for candidate models."""
+    features = train_data.drop(columns=["customer_id", "churn"])
+    target = train_data["churn"]
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    scoring = {
+        "roc_auc": "roc_auc",
+        "recall": "recall",
+        "precision": "precision",
+        "f1": "f1",
+        "neg_brier": "neg_brier_score",
+    }
+    candidates = build_candidate_models(train_data)
+    report = {}
+
+    for name, candidate in candidates.items():
+        scores = cross_validate(candidate, features, target, cv=cv, scoring=scoring, n_jobs=None)
+        candidate.fit(features, target)
+        holdout = evaluate(candidate, test_data)
+        report[name] = {
+            "cross_validation": {
+                "roc_auc_mean": round(float(scores["test_roc_auc"].mean()), 4),
+                "roc_auc_std": round(float(scores["test_roc_auc"].std()), 4),
+                "recall_mean": round(float(scores["test_recall"].mean()), 4),
+                "precision_mean": round(float(scores["test_precision"].mean()), 4),
+                "f1_mean": round(float(scores["test_f1"].mean()), 4),
+                "brier_mean": round(float((-scores["test_neg_brier"]).mean()), 4),
+            },
+            "holdout": holdout,
+        }
+
+    return report, candidates["production_logistic"]
+
+
+def tune_business_thresholds(model: Pipeline, validation_data: pd.DataFrame) -> dict:
+    """Choose decision thresholds by expected net value, not only ROC-AUC."""
+    features = validation_data.drop(columns=["customer_id", "churn"])
+    probabilities = model.predict_proba(features)[:, 1]
+    rows = validation_data.to_dict(orient="records")
+    options = []
+    for threshold in [round(value / 100, 2) for value in range(30, 86, 5)]:
+        expected_net_value = 0.0
+        interventions = 0
+        captured_churners = 0
+        for probability, row in zip(probabilities, rows):
+            if probability < threshold:
+                continue
+            interventions += 1
+            annual_revenue = float(row["monthly_charges"]) * 12
+            if row["churn"]:
+                captured_churners += 1
+            expected_net_value += annual_revenue * probability * 0.18 - 22
+        options.append(
+            {
+                "threshold": threshold,
+                "interventions": interventions,
+                "captured_churners": captured_churners,
+                "expected_net_value": round(float(expected_net_value), 2),
+            }
+        )
+    best = max(options, key=lambda item: item["expected_net_value"])
+    return {
+        "objective": "maximize expected retention net value on holdout data",
+        "assumptions": {
+            "average_intervention_cost": 22,
+            "average_save_lift": 0.18,
+        },
+        "recommended_threshold": best["threshold"],
+        "options": options,
     }
 
 
@@ -224,11 +349,47 @@ def render_drift_summary(reference: pd.DataFrame, drift: pd.DataFrame, output_pa
     plt.close(figure)
 
 
+def render_model_selection_report(model_report: dict, threshold_policy: dict, output_path: Path) -> None:
+    """Render model selection and business threshold evidence."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    names = list(model_report)
+    roc_auc = [model_report[name]["cross_validation"]["roc_auc_mean"] for name in names]
+    brier = [model_report[name]["cross_validation"]["brier_mean"] for name in names]
+    threshold_rows = threshold_policy["options"]
+
+    figure, axes = plt.subplots(1, 3, figsize=(15, 4.8))
+    axes[0].bar(names, roc_auc, color="#2563eb")
+    axes[0].set_ylim(0, 1)
+    axes[0].set_title("5-fold ROC-AUC")
+    axes[0].tick_params(axis="x", rotation=20)
+
+    axes[1].bar(names, brier, color="#7c3aed")
+    axes[1].set_title("Calibration loss (Brier)")
+    axes[1].tick_params(axis="x", rotation=20)
+
+    axes[2].plot(
+        [row["threshold"] for row in threshold_rows],
+        [row["expected_net_value"] for row in threshold_rows],
+        marker="o",
+        color="#059669",
+    )
+    axes[2].axvline(threshold_policy["recommended_threshold"], color="#ef4444", linestyle="--")
+    axes[2].set_title("Business threshold tuning")
+    axes[2].set_xlabel("Action threshold")
+    axes[2].set_ylabel("Expected net value")
+
+    figure.suptitle("Model Selection and Decision Policy", fontsize=15, fontweight="bold")
+    figure.tight_layout()
+    figure.savefig(output_path, dpi=160, bbox_inches="tight")
+    plt.close(figure)
+
+
 def run_pipeline(
     samples: int,
     output_dir: Path,
     screenshot_path: Path,
     drift_screenshot_path: Path = Path("docs/assets/data-drift-comparison.png"),
+    model_report_path: Path = Path("docs/assets/model-selection-report.png"),
     web_public_dir: Path = Path("public"),
 ) -> dict:
     """Generate data, train, evaluate, and persist artifacts."""
@@ -242,12 +403,14 @@ def run_pipeline(
         stratify=data["churn"],
     )
 
-    model = build_pipeline(train_data)
-    model.fit(train_data.drop(columns=["customer_id", "churn"]), train_data["churn"])
+    model_report, model = evaluate_model_candidates(train_data, test_data)
     metrics = {
         "test": evaluate(model, test_data),
         "drift": evaluate(model, drift_data),
+        "model_selection": model_report,
     }
+    threshold_policy = tune_business_thresholds(model, test_data)
+    metrics["threshold_policy"] = threshold_policy
     metrics["roc_auc_change_under_drift"] = round(
         metrics["drift"]["roc_auc"] - metrics["test"]["roc_auc"], 4
     )
@@ -262,13 +425,16 @@ def run_pipeline(
     bundle["business_summary"] = business_summary
     with (output_dir / "metrics.json").open("w", encoding="utf-8") as file:
         json.dump(metrics, file, indent=2)
+    (output_dir / "model_selection.json").write_text(json.dumps(model_report, indent=2), encoding="utf-8")
+    (output_dir / "threshold_policy.json").write_text(json.dumps(threshold_policy, indent=2), encoding="utf-8")
     for path in [output_dir / "model_bundle.json", web_public_dir / "model_bundle.json"]:
         path.write_text(json.dumps(bundle, indent=2), encoding="utf-8")
-    for name in ["customer_scores.json", "business_summary.json"]:
+    for name in ["customer_scores.json", "business_summary.json", "model_selection.json", "threshold_policy.json"]:
         (web_public_dir / name).write_text((output_dir / name).read_text(encoding="utf-8"), encoding="utf-8")
     render_summary(metrics, model, test_data, screenshot_path)
     render_drift_summary(data, drift_data, drift_screenshot_path)
-    for image_path in [screenshot_path, drift_screenshot_path]:
+    render_model_selection_report(model_report, threshold_policy, model_report_path)
+    for image_path in [screenshot_path, drift_screenshot_path, model_report_path]:
         target = web_public_dir / image_path.name
         target.write_bytes(image_path.read_bytes())
     return metrics
@@ -288,6 +454,11 @@ def main() -> None:
         type=Path,
         default=Path("docs/assets/data-drift-comparison.png"),
     )
+    parser.add_argument(
+        "--model-report-screenshot",
+        type=Path,
+        default=Path("docs/assets/model-selection-report.png"),
+    )
     parser.add_argument("--web-public-dir", type=Path, default=Path("public"))
     args = parser.parse_args()
     metrics = run_pipeline(
@@ -295,6 +466,7 @@ def main() -> None:
         args.output_dir,
         args.screenshot,
         args.drift_screenshot,
+        args.model_report_screenshot,
         args.web_public_dir,
     )
     print(json.dumps(metrics, indent=2))

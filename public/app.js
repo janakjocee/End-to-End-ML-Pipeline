@@ -569,21 +569,7 @@ async function handleUpload(event) {
   try {
     uploadStatus.className = "status-message";
     uploadStatus.textContent = `Reading ${file.name}...`;
-    const records = parseCsv(await file.text());
-    state.rawRecords = records;
-    const inference = inferColumnMapping(Object.keys(records[0]));
-    state.inference = inference;
-    uploadStatus.textContent = `Scoring ${records.length.toLocaleString()} rows...`;
-    state.uploaded = await scoreUploadedRecordsAsync(records, inference);
-    uploadStatus.className = "status-message success";
-    uploadStatus.textContent =
-      `Scored ${state.uploaded.length.toLocaleString()} rows with ${Object.keys(inference.mapping).length} detected fields and ${inference.defaults.length} defaults. Showing the top 25 accounts by revenue at risk.`;
-    renderMappingReport(inference);
-    renderMonitoringReport();
-    renderUploadSummary(state.uploaded);
-    renderUploadedTable();
-    uploadResults.classList.remove("hidden");
-    saveCurrentBatch(file.name);
+    await processUploadedCsv(await file.text(), file.name);
   } catch (error) {
     state.uploaded = [];
     uploadedSummary.classList.add("hidden");
@@ -593,6 +579,34 @@ async function handleUpload(event) {
     uploadStatus.className = "status-message error-text";
     uploadStatus.textContent = error.message;
   }
+}
+
+async function processUploadedCsv(text, label) {
+  const records = parseCsv(text);
+  state.rawRecords = records;
+  const inference = inferColumnMapping(Object.keys(records[0]));
+  state.inference = inference;
+  uploadStatus.textContent = `Scoring ${records.length.toLocaleString()} rows...`;
+  state.uploaded = await scoreUploadedRecordsAsync(records, inference);
+  uploadStatus.className = "status-message success";
+  uploadStatus.textContent =
+    `Scored ${state.uploaded.length.toLocaleString()} rows with ${Object.keys(inference.mapping).length} detected fields and ${inference.defaults.length} defaults. Showing the top 25 accounts by revenue at risk.`;
+  renderMappingReport(inference);
+  renderMonitoringReport();
+  renderUploadSummary(state.uploaded);
+  renderUploadedTable();
+  uploadResults.classList.remove("hidden");
+  saveCurrentBatch(label);
+}
+
+async function maybeLoadDemoUpload() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("demo") !== "telco") return;
+  uploadStatus.className = "status-message";
+  uploadStatus.textContent = "Loading Telco sample CSV...";
+  const response = await fetch("/telco-sample.csv");
+  await processUploadedCsv(await response.text(), "telco-sample.csv");
+  document.querySelector("#batch")?.scrollIntoView();
 }
 
 function readForm() {
@@ -714,6 +728,7 @@ async function load() {
     persistHistory();
     renderHistory();
   });
+  await maybeLoadDemoUpload();
 }
 
 load().catch((error) => {

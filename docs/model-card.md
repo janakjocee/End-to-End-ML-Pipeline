@@ -9,10 +9,10 @@ The model estimates churn risk for subscription-style customers and helps custom
 | Item | Value |
 |---|---|
 | Model ID | `churn-command-center-logreg-v1` |
-| Algorithm | Class-balanced logistic regression |
+| Algorithm | Class-balanced logistic regression selected after challenger comparison |
 | Features | Customer tenure, charges, contract, payment method, internet service, support services, and related account attributes |
 | Output | Churn probability, risk band, top drivers, revenue at risk, and recommended retention action |
-| Deployment bundle | `web/public/model_bundle.json` |
+| Deployment bundle | `public/model_bundle.json` |
 
 ## Verified Metrics
 
@@ -23,8 +23,23 @@ The model estimates churn risk for subscription-style customers and helps custom
 | Recall | 0.716 |
 | F1 | 0.444 |
 | ROC-AUC | 0.746 |
+| Brier score | 0.208 |
 
 The model is tuned toward recall because missing a likely churner can be more expensive than sending a low-cost retention nudge.
+
+## Model Selection
+
+The pipeline compares:
+
+- production logistic regression
+- sigmoid-calibrated logistic regression
+- balanced random forest
+
+The selected production model is not the most complex model; it is the model that balances recall, transparent explanations, compact JSON deployment, and stable serverless scoring. Detailed results are saved in `artifacts/demo/model_selection.json` and visualized in `docs/assets/model-selection-report.png`.
+
+## Threshold Tuning
+
+The pipeline sweeps action thresholds from `0.30` to `0.85` and estimates intervention net value using documented cost/lift assumptions. The current generated holdout recommends an action threshold of `0.30` for maximum expected value, while the UI still labels operational risk bands separately for human review.
 
 ## Decision Policy
 

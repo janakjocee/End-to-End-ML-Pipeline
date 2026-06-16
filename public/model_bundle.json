@@ -14,7 +14,8 @@
       "precision": 0.3222,
       "recall": 0.7162,
       "f1": 0.4444,
-      "roc_auc": 0.7459
+      "roc_auc": 0.7459,
+      "brier": 0.208
     },
     "drift": {
       "samples": 2500,
@@ -23,10 +24,155 @@
       "precision": 0.514,
       "recall": 0.8086,
       "f1": 0.6285,
-      "roc_auc": 0.7728
+      "roc_auc": 0.7728,
+      "brier": 0.2094
+    },
+    "model_selection": {
+      "production_logistic": {
+        "cross_validation": {
+          "roc_auc_mean": 0.7408,
+          "roc_auc_std": 0.0209,
+          "recall_mean": 0.6881,
+          "precision_mean": 0.3112,
+          "f1_mean": 0.4284,
+          "brier_mean": 0.2076
+        },
+        "holdout": {
+          "samples": 1250,
+          "churn_rate": 0.1832,
+          "accuracy": 0.672,
+          "precision": 0.3222,
+          "recall": 0.7162,
+          "f1": 0.4444,
+          "roc_auc": 0.7459,
+          "brier": 0.208
+        }
+      },
+      "calibrated_logistic": {
+        "cross_validation": {
+          "roc_auc_mean": 0.741,
+          "roc_auc_std": 0.021,
+          "recall_mean": 0.0452,
+          "precision_mean": 0.4884,
+          "f1_mean": 0.0824,
+          "brier_mean": 0.1332
+        },
+        "holdout": {
+          "samples": 1250,
+          "churn_rate": 0.1832,
+          "accuracy": 0.8192,
+          "precision": 0.5556,
+          "recall": 0.0655,
+          "f1": 0.1172,
+          "roc_auc": 0.7456,
+          "brier": 0.1322
+        }
+      },
+      "random_forest": {
+        "cross_validation": {
+          "roc_auc_mean": 0.737,
+          "roc_auc_std": 0.0201,
+          "recall_mean": 0.6356,
+          "precision_mean": 0.3333,
+          "f1_mean": 0.437,
+          "brier_mean": 0.1912
+        },
+        "holdout": {
+          "samples": 1250,
+          "churn_rate": 0.1832,
+          "accuracy": 0.6928,
+          "precision": 0.3258,
+          "recall": 0.6332,
+          "f1": 0.4303,
+          "roc_auc": 0.7418,
+          "brier": 0.1922
+        }
+      }
+    },
+    "threshold_policy": {
+      "objective": "maximize expected retention net value on holdout data",
+      "assumptions": {
+        "average_intervention_cost": 22,
+        "average_save_lift": 0.18
+      },
+      "recommended_threshold": 0.3,
+      "options": [
+        {
+          "threshold": 0.3,
+          "interventions": 872,
+          "captured_churners": 214,
+          "expected_net_value": 53356.92
+        },
+        {
+          "threshold": 0.35,
+          "interventions": 782,
+          "captured_churners": 206,
+          "expected_net_value": 51505.35
+        },
+        {
+          "threshold": 0.4,
+          "interventions": 685,
+          "captured_churners": 192,
+          "expected_net_value": 48290.76
+        },
+        {
+          "threshold": 0.45,
+          "interventions": 596,
+          "captured_churners": 179,
+          "expected_net_value": 44856.18
+        },
+        {
+          "threshold": 0.5,
+          "interventions": 509,
+          "captured_churners": 164,
+          "expected_net_value": 40803.05
+        },
+        {
+          "threshold": 0.55,
+          "interventions": 428,
+          "captured_churners": 146,
+          "expected_net_value": 36714.42
+        },
+        {
+          "threshold": 0.6,
+          "interventions": 335,
+          "captured_churners": 120,
+          "expected_net_value": 31024.68
+        },
+        {
+          "threshold": 0.65,
+          "interventions": 259,
+          "captured_churners": 95,
+          "expected_net_value": 25633.12
+        },
+        {
+          "threshold": 0.7,
+          "interventions": 189,
+          "captured_churners": 78,
+          "expected_net_value": 20026.07
+        },
+        {
+          "threshold": 0.75,
+          "interventions": 121,
+          "captured_churners": 58,
+          "expected_net_value": 14743.8
+        },
+        {
+          "threshold": 0.8,
+          "interventions": 59,
+          "captured_churners": 27,
+          "expected_net_value": 8507.86
+        },
+        {
+          "threshold": 0.85,
+          "interventions": 22,
+          "captured_churners": 12,
+          "expected_net_value": 3436.84
+        }
+      ]
     },
     "roc_auc_change_under_drift": 0.0269,
-    "duration_seconds": 0.061
+    "duration_seconds": 1.857
   },
   "schema": {
     "senior_citizen": {

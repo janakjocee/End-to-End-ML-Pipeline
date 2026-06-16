@@ -1,0 +1,62 @@
+{
+  "production_logistic": {
+    "cross_validation": {
+      "roc_auc_mean": 0.7408,
+      "roc_auc_std": 0.0209,
+      "recall_mean": 0.6881,
+      "precision_mean": 0.3112,
+      "f1_mean": 0.4284,
+      "brier_mean": 0.2076
+    },
+    "holdout": {
+      "samples": 1250,
+      "churn_rate": 0.1832,
+      "accuracy": 0.672,
+      "precision": 0.3222,
+      "recall": 0.7162,
+      "f1": 0.4444,
+      "roc_auc": 0.7459,
+      "brier": 0.208
+    }
+  },
+  "calibrated_logistic": {
+    "cross_validation": {
+      "roc_auc_mean": 0.741,
+      "roc_auc_std": 0.021,
+      "recall_mean": 0.0452,
+      "precision_mean": 0.4884,
+      "f1_mean": 0.0824,
+      "brier_mean": 0.1332
+    },
+    "holdout": {
+      "samples": 1250,
+      "churn_rate": 0.1832,
+      "accuracy": 0.8192,
+      "precision": 0.5556,
+      "recall": 0.0655,
+      "f1": 0.1172,
+      "roc_auc": 0.7456,
+      "brier": 0.1322
+    }
+  },
+  "random_forest": {
+    "cross_validation": {
+      "roc_auc_mean": 0.737,
+      "roc_auc_std": 0.0201,
+      "recall_mean": 0.6356,
+      "precision_mean": 0.3333,
+      "f1_mean": 0.437,
+      "brier_mean": 0.1912
+    },
+    "holdout": {
+      "samples": 1250,
+      "churn_rate": 0.1832,
+      "accuracy": 0.6928,
+      "precision": 0.3258,
+      "recall": 0.6332,
+      "f1": 0.4303,
+      "roc_auc": 0.7418,
+      "brier": 0.1922
+    }
+  }
+}

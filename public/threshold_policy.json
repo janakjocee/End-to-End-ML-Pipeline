@@ -1,0 +1,82 @@
+{
+  "objective": "maximize expected retention net value on holdout data",
+  "assumptions": {
+    "average_intervention_cost": 22,
+    "average_save_lift": 0.18
+  },
+  "recommended_threshold": 0.3,
+  "options": [
+    {
+      "threshold": 0.3,
+      "interventions": 872,
+      "captured_churners": 214,
+      "expected_net_value": 53356.92
+    },
+    {
+      "threshold": 0.35,
+      "interventions": 782,
+      "captured_churners": 206,
+      "expected_net_value": 51505.35
+    },
+    {
+      "threshold": 0.4,
+      "interventions": 685,
+      "captured_churners": 192,
+      "expected_net_value": 48290.76
+    },
+    {
+      "threshold": 0.45,
+      "interventions": 596,
+      "captured_churners": 179,
+      "expected_net_value": 44856.18
+    },
+    {
+      "threshold": 0.5,
+      "interventions": 509,
+      "captured_churners": 164,
+      "expected_net_value": 40803.05
+    },
+    {
+      "threshold": 0.55,
+      "interventions": 428,
+      "captured_churners": 146,
+      "expected_net_value": 36714.42
+    },
+    {
+      "threshold": 0.6,
+      "interventions": 335,
+      "captured_churners": 120,
+      "expected_net_value": 31024.68
+    },
+    {
+      "threshold": 0.65,
+      "interventions": 259,
+      "captured_churners": 95,
+      "expected_net_value": 25633.12
+    },
+    {
+      "threshold": 0.7,
+      "interventions": 189,
+      "captured_churners": 78,
+      "expected_net_value": 20026.07
+    },
+    {
+      "threshold": 0.75,
+      "interventions": 121,
+      "captured_churners": 58,
+      "expected_net_value": 14743.8
+    },
+    {
+      "threshold": 0.8,
+      "interventions": 59,
+      "captured_churners": 27,
+      "expected_net_value": 8507.86
+    },
+    {
+      "threshold": 0.85,
+      "interventions": 22,
+      "captured_churners": 12,
+      "expected_net_value": 3436.84
+    }
+  ]
+}
