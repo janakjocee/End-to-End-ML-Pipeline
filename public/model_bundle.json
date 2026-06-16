@@ -1,0 +1,296 @@
+{
+  "model_id": "churn-command-center-logreg-v1",
+  "problem": "Predict customer churn risk and recommend customer-success actions.",
+  "decision_thresholds": {
+    "low": 0.0,
+    "medium": 0.4,
+    "high": 0.7
+  },
+  "metrics": {
+    "test": {
+      "samples": 1250,
+      "churn_rate": 0.1832,
+      "accuracy": 0.672,
+      "precision": 0.3222,
+      "recall": 0.7162,
+      "f1": 0.4444,
+      "roc_auc": 0.7459
+    },
+    "drift": {
+      "samples": 2500,
+      "churn_rate": 0.3448,
+      "accuracy": 0.6704,
+      "precision": 0.514,
+      "recall": 0.8086,
+      "f1": 0.6285,
+      "roc_auc": 0.7728
+    },
+    "roc_auc_change_under_drift": 0.0269,
+    "duration_seconds": 0.061
+  },
+  "schema": {
+    "senior_citizen": {
+      "type": "numeric",
+      "default": 0.0,
+      "mean": 0.14053333,
+      "scale": 0.34753952,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "tenure": {
+      "type": "numeric",
+      "default": 16.0,
+      "mean": 22.13546667,
+      "scale": 19.95685468,
+      "min": 1.0,
+      "max": 72.0
+    },
+    "monthly_charges": {
+      "type": "numeric",
+      "default": 64.275,
+      "mean": 64.876432,
+      "scale": 27.56725014,
+      "min": 20.0,
+      "max": 120.0
+    },
+    "total_charges": {
+      "type": "numeric",
+      "default": 889.07,
+      "mean": 1426.56795467,
+      "scale": 1517.01187623,
+      "min": 18.16,
+      "max": 9131.95
+    },
+    "gender": {
+      "type": "categorical",
+      "default": "Male",
+      "values": [
+        "Female",
+        "Male"
+      ]
+    },
+    "partner": {
+      "type": "categorical",
+      "default": "No",
+      "values": [
+        "No",
+        "Yes"
+      ]
+    },
+    "dependents": {
+      "type": "categorical",
+      "default": "No",
+      "values": [
+        "No",
+        "Yes"
+      ]
+    },
+    "phone_service": {
+      "type": "categorical",
+      "default": "Yes",
+      "values": [
+        "No",
+        "Yes"
+      ]
+    },
+    "multiple_lines": {
+      "type": "categorical",
+      "default": "No",
+      "values": [
+        "No",
+        "No phone service",
+        "Yes"
+      ]
+    },
+    "internet_service": {
+      "type": "categorical",
+      "default": "DSL",
+      "values": [
+        "DSL",
+        "Fiber optic",
+        "No"
+      ]
+    },
+    "online_security": {
+      "type": "categorical",
+      "default": "No",
+      "values": [
+        "No",
+        "No internet service",
+        "Yes"
+      ]
+    },
+    "online_backup": {
+      "type": "categorical",
+      "default": "No",
+      "values": [
+        "No",
+        "No internet service",
+        "Yes"
+      ]
+    },
+    "device_protection": {
+      "type": "categorical",
+      "default": "No",
+      "values": [
+        "No",
+        "No internet service",
+        "Yes"
+      ]
+    },
+    "tech_support": {
+      "type": "categorical",
+      "default": "No",
+      "values": [
+        "No",
+        "No internet service",
+        "Yes"
+      ]
+    },
+    "streaming_tv": {
+      "type": "categorical",
+      "default": "No",
+      "values": [
+        "No",
+        "No internet service",
+        "Yes"
+      ]
+    },
+    "streaming_movies": {
+      "type": "categorical",
+      "default": "No",
+      "values": [
+        "No",
+        "No internet service",
+        "Yes"
+      ]
+    },
+    "contract": {
+      "type": "categorical",
+      "default": "Month-to-month",
+      "values": [
+        "Month-to-month",
+        "One year",
+        "Two year"
+      ]
+    },
+    "paperless_billing": {
+      "type": "categorical",
+      "default": "Yes",
+      "values": [
+        "No",
+        "Yes"
+      ]
+    },
+    "payment_method": {
+      "type": "categorical",
+      "default": "Electronic check",
+      "values": [
+        "Bank transfer",
+        "Credit card",
+        "Electronic check",
+        "Mailed check"
+      ]
+    }
+  },
+  "weights": {
+    "intercept": -0.1217059638,
+    "numeric": {
+      "senior_citizen": 0.0942691819,
+      "tenure": -0.3194854637,
+      "monthly_charges": 0.2773349688,
+      "total_charges": -0.1643691896
+    },
+    "categorical": {
+      "gender": {
+        "Female": -0.0958144533,
+        "Male": -0.0258915104
+      },
+      "partner": {
+        "No": 0.0107657944,
+        "Yes": -0.1324717582
+      },
+      "dependents": {
+        "No": -0.0385646672,
+        "Yes": -0.0831412966
+      },
+      "phone_service": {
+        "No": -0.1321407922,
+        "Yes": 0.0104348285
+      },
+      "multiple_lines": {
+        "No": -0.0225330455,
+        "No phone service": -0.1321407922,
+        "Yes": 0.0329678739
+      },
+      "internet_service": {
+        "DSL": -0.3039362823,
+        "Fiber optic": 0.209442974,
+        "No": -0.0272126555
+      },
+      "online_security": {
+        "No": 0.0681959453,
+        "No internet service": -0.0272126555,
+        "Yes": -0.1626892536
+      },
+      "online_backup": {
+        "No": -0.1134300378,
+        "No internet service": -0.0272126555,
+        "Yes": 0.0189367295
+      },
+      "device_protection": {
+        "No": -0.0764953151,
+        "No internet service": -0.0272126555,
+        "Yes": -0.0179979932
+      },
+      "tech_support": {
+        "No": 0.2893401632,
+        "No internet service": -0.0272126555,
+        "Yes": -0.3838334715
+      },
+      "streaming_tv": {
+        "No": -0.0943365102,
+        "No internet service": -0.0272126555,
+        "Yes": -0.000156798
+      },
+      "streaming_movies": {
+        "No": -0.0454284798,
+        "No internet service": -0.0272126555,
+        "Yes": -0.0490648285
+      },
+      "contract": {
+        "Month-to-month": 0.8919211468,
+        "One year": -0.4942549307,
+        "Two year": -0.5193721799
+      },
+      "paperless_billing": {
+        "No": -0.0512215187,
+        "Yes": -0.0704844451
+      },
+      "payment_method": {
+        "Bank transfer": -0.3532282389,
+        "Credit card": -0.2904891936,
+        "Electronic check": 0.5426716301,
+        "Mailed check": -0.0206601615
+      }
+    }
+  },
+  "business_summary": {
+    "customers_scored": 250,
+    "risk_counts": {
+      "high": 68,
+      "medium": 92,
+      "low": 90
+    },
+    "high_risk_share": 0.272,
+    "revenue_at_risk": 162533.47,
+    "expected_net_value": 21075.77,
+    "action_counts": {
+      "Monitor only": 90,
+      "Support bundle": 73,
+      "Targeted save offer": 66,
+      "Education nudge": 19,
+      "Customer success call": 2
+    }
+  }
+}
