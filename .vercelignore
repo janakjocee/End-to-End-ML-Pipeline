@@ -1,0 +1,10 @@
+*
+!api
+!api/**
+!package-lock.json
+!package.json
+!public
+!public/**
+!scripts
+!scripts/**
+!vercel.json

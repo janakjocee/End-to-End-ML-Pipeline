@@ -1,0 +1,18 @@
+{
+  "customers_scored": 250,
+  "risk_counts": {
+    "high": 68,
+    "medium": 92,
+    "low": 90
+  },
+  "high_risk_share": 0.272,
+  "revenue_at_risk": 162533.47,
+  "expected_net_value": 21075.77,
+  "action_counts": {
+    "Monitor only": 90,
+    "Support bundle": 73,
+    "Targeted save offer": 66,
+    "Education nudge": 19,
+    "Customer success call": 2
+  }
+}

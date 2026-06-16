@@ -1,0 +1,13 @@
+{
+  "name": "churn-command-center",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vercel-ready customer churn command center for the End-to-End ML Pipeline project.",
+  "scripts": {
+    "build": "node scripts/verify_web_assets.mjs && node scripts/build_vercel_output.mjs",
+    "test:web": "node scripts/verify_web_assets.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -22,6 +22,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
+from shared.churn_business import score_customer, summarize_portfolio
 from scripts.generate_sample_data import generate_churn_dataset
 
 
@@ -72,6 +73,89 @@ def evaluate(model: Pipeline, data: pd.DataFrame) -> dict:
         "f1": round(float(f1_score(target, predictions, zero_division=0)), 4),
         "roc_auc": round(float(roc_auc_score(target, probabilities)), 4),
     }
+
+
+def export_scoring_bundle(model: Pipeline, training_data: pd.DataFrame, metrics: dict) -> dict:
+    """Export the fitted model into a lightweight JSON scoring bundle."""
+    features = training_data.drop(columns=["customer_id", "churn"])
+    preprocessor = model.named_steps["preprocessor"]
+    classifier = model.named_steps["classifier"]
+    numeric_features = preprocessor.transformers_[0][2]
+    categorical_features = preprocessor.transformers_[1][2]
+    scaler = preprocessor.named_transformers_["numeric"]
+    encoder = preprocessor.named_transformers_["categorical"]
+    coefficients = classifier.coef_[0]
+
+    schema = {}
+    coefficient_index = 0
+    numeric_weights = {}
+    categorical_weights = {}
+
+    for index, feature in enumerate(numeric_features):
+        schema[feature] = {
+            "type": "numeric",
+            "default": round(float(features[feature].median()), 4),
+            "mean": round(float(scaler.mean_[index]), 8),
+            "scale": round(float(scaler.scale_[index]), 8),
+            "min": round(float(features[feature].min()), 4),
+            "max": round(float(features[feature].max()), 4),
+        }
+        numeric_weights[feature] = round(float(coefficients[coefficient_index]), 10)
+        coefficient_index += 1
+
+    for feature, categories in zip(categorical_features, encoder.categories_):
+        values = [str(value) for value in categories]
+        schema[feature] = {
+            "type": "categorical",
+            "default": str(features[feature].mode().iloc[0]),
+            "values": values,
+        }
+        categorical_weights[feature] = {}
+        for value in values:
+            categorical_weights[feature][value] = round(float(coefficients[coefficient_index]), 10)
+            coefficient_index += 1
+
+    return {
+        "model_id": "churn-command-center-logreg-v1",
+        "problem": "Predict customer churn risk and recommend customer-success actions.",
+        "decision_thresholds": {"low": 0.0, "medium": 0.4, "high": 0.7},
+        "metrics": metrics,
+        "schema": schema,
+        "weights": {
+            "intercept": round(float(classifier.intercept_[0]), 10),
+            "numeric": numeric_weights,
+            "categorical": categorical_weights,
+        },
+    }
+
+
+def export_customer_portfolio(bundle: dict, data: pd.DataFrame, output_dir: Path) -> dict:
+    """Export scored customers and business summary for the web app."""
+    scored_customers = []
+    sample = data.sort_values(["monthly_charges", "tenure"], ascending=[False, True]).head(250)
+    for record in sample.to_dict(orient="records"):
+        features = {key: value for key, value in record.items() if key not in {"churn"}}
+        score = score_customer(bundle, features)
+        scored_customers.append(
+            {
+                "customer_id": record["customer_id"],
+                "features": features,
+                "actual_churn": int(record["churn"]),
+                "score": score,
+            }
+        )
+
+    scored_customers.sort(key=lambda item: item["score"]["revenue_at_risk"], reverse=True)
+    summary = summarize_portfolio(scored_customers)
+    (output_dir / "customer_scores.json").write_text(
+        json.dumps(scored_customers, indent=2),
+        encoding="utf-8",
+    )
+    (output_dir / "business_summary.json").write_text(
+        json.dumps(summary, indent=2),
+        encoding="utf-8",
+    )
+    return summary
 
 
 def render_summary(metrics: dict, model: Pipeline, test_data: pd.DataFrame, output_path: Path) -> None:
@@ -145,6 +229,7 @@ def run_pipeline(
     output_dir: Path,
     screenshot_path: Path,
     drift_screenshot_path: Path = Path("docs/assets/data-drift-comparison.png"),
+    web_public_dir: Path = Path("public"),
 ) -> dict:
     """Generate data, train, evaluate, and persist artifacts."""
     started = perf_counter()
@@ -169,12 +254,23 @@ def run_pipeline(
     metrics["duration_seconds"] = round(perf_counter() - started, 3)
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    web_public_dir.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, output_dir / "churn_pipeline.joblib")
     test_data.to_csv(output_dir / "holdout.csv", index=False)
+    bundle = export_scoring_bundle(model, train_data, metrics)
+    business_summary = export_customer_portfolio(bundle, test_data, output_dir)
+    bundle["business_summary"] = business_summary
     with (output_dir / "metrics.json").open("w", encoding="utf-8") as file:
         json.dump(metrics, file, indent=2)
+    for path in [output_dir / "model_bundle.json", web_public_dir / "model_bundle.json"]:
+        path.write_text(json.dumps(bundle, indent=2), encoding="utf-8")
+    for name in ["customer_scores.json", "business_summary.json"]:
+        (web_public_dir / name).write_text((output_dir / name).read_text(encoding="utf-8"), encoding="utf-8")
     render_summary(metrics, model, test_data, screenshot_path)
     render_drift_summary(data, drift_data, drift_screenshot_path)
+    for image_path in [screenshot_path, drift_screenshot_path]:
+        target = web_public_dir / image_path.name
+        target.write_bytes(image_path.read_bytes())
     return metrics
 
 
@@ -192,8 +288,15 @@ def main() -> None:
         type=Path,
         default=Path("docs/assets/data-drift-comparison.png"),
     )
+    parser.add_argument("--web-public-dir", type=Path, default=Path("public"))
     args = parser.parse_args()
-    metrics = run_pipeline(args.samples, args.output_dir, args.screenshot, args.drift_screenshot)
+    metrics = run_pipeline(
+        args.samples,
+        args.output_dir,
+        args.screenshot,
+        args.drift_screenshot,
+        args.web_public_dir,
+    )
     print(json.dumps(metrics, indent=2))
 
 

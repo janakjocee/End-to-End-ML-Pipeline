@@ -37,6 +37,10 @@ jobs:
           --output-dir /tmp/ml-demo
           --screenshot /tmp/demo-results.png
           --drift-screenshot /tmp/drift-results.png
+          --web-public-dir public
+
+      - name: Validate Vercel web assets
+        run: npm run build
 
       - name: Validate Compose configuration
         run: docker compose config --quiet

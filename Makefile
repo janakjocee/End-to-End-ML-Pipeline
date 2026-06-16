@@ -10,6 +10,7 @@ setup:
 
 test:
 	$(VENV)/bin/python -m pytest tests/unit -q
+	npm run build
 
 demo:
 	$(VENV)/bin/python -m scripts.run_demo_pipeline
