@@ -14,8 +14,9 @@
     <header class="hero">
       <nav class="nav">
         <span class="logo">Churn Command Center</span>
-        <a href="#score">Score a customer</a>
+        <a href="#batch">Upload CSV</a>
         <a href="#portfolio">Portfolio</a>
+        <a href="#score">Single score</a>
         <a href="#governance">Governance</a>
       </nav>
       <div class="hero-grid">
@@ -25,10 +26,11 @@
           <p class="lede">
             This app turns the trained churn model into an operations workflow:
             score accounts, explain risk drivers, estimate revenue at risk, and prioritize
-            customer-success interventions.
+            customer-success interventions from one customer or an uploaded customer file.
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="#score">Try the scorer</a>
+            <a class="button primary" href="#batch">Upload a CSV</a>
+            <a class="button secondary" href="/sample-customers.csv" download>Download sample CSV</a>
             <a class="button secondary" href="https://github.com/janakjocee/End-to-End-ML-Pipeline">View repo</a>
           </div>
         </section>
@@ -61,34 +63,88 @@
         </article>
       </section>
 
-      <section id="score" class="panel split">
-        <div>
-          <p class="eyebrow">Interactive scoring</p>
-          <h2>Score one customer</h2>
+      <section id="batch" class="panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Batch scoring workflow</p>
+            <h2>Upload customer records</h2>
+          </div>
           <p>
-            Change the customer profile and the browser will call the same lightweight
-            scoring logic used by the Vercel API.
+            Upload a CSV with one row per customer. The app validates required fields,
+            scores every record, prioritizes outreach, and lets you export the action queue.
           </p>
-          <form id="score-form" class="form"></form>
         </div>
-        <div class="score-result" aria-live="polite">
-          <span class="badge" id="risk-band">Waiting</span>
-          <h3 id="score-probability">Select customer inputs</h3>
-          <p id="score-action">The recommended action will appear here.</p>
-          <dl class="metric-list">
-            <div><dt>Revenue at risk</dt><dd id="score-rar">-</dd></div>
-            <div><dt>Expected net value</dt><dd id="score-net">-</dd></div>
-          </dl>
-          <h4>Top risk drivers</h4>
-          <ol id="driver-list" class="drivers"></ol>
+
+        <div class="upload-grid">
+          <div class="upload-box">
+            <input id="csv-upload" type="file" accept=".csv,text/csv" />
+            <strong>Drop in a customer CSV</strong>
+            <p>
+              Required columns are read from the model schema. Include
+              <code>customer_id</code> when available.
+            </p>
+            <div class="upload-actions">
+              <label class="button primary file-button" for="csv-upload">Choose CSV file</label>
+              <a class="button secondary" href="/sample-customers.csv" download>Use sample CSV</a>
+            </div>
+          </div>
+          <div class="schema-card">
+            <h3>Expected columns</h3>
+            <p id="schema-columns">Loading schema...</p>
+            <div id="upload-status" class="status-message">No file uploaded yet.</div>
+          </div>
+        </div>
+
+        <div id="uploaded-summary" class="cards compact hidden" aria-label="Uploaded file summary">
+          <article class="card">
+            <span>Rows scored</span>
+            <strong id="upload-rows">-</strong>
+          </article>
+          <article class="card">
+            <span>High risk</span>
+            <strong id="upload-high-risk">-</strong>
+          </article>
+          <article class="card">
+            <span>Revenue at risk</span>
+            <strong id="upload-rar">-</strong>
+          </article>
+          <article class="card">
+            <span>Expected net value</span>
+            <strong id="upload-net">-</strong>
+          </article>
+        </div>
+
+        <div id="upload-results" class="hidden">
+          <div class="section-heading tight">
+            <div>
+              <p class="eyebrow">Generated action queue</p>
+              <h2>Uploaded accounts to work first</h2>
+            </div>
+            <button id="download-scored" class="button primary" type="button">Download scored CSV</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>Risk</th>
+                  <th>Churn probability</th>
+                  <th>Revenue at risk</th>
+                  <th>Expected net value</th>
+                  <th>Recommended action</th>
+                </tr>
+              </thead>
+              <tbody id="uploaded-table"></tbody>
+            </table>
+          </div>
         </div>
       </section>
 
       <section id="portfolio" class="panel">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Retention operations</p>
-            <h2>Top accounts to work today</h2>
+            <p class="eyebrow">Demo portfolio</p>
+            <h2>Generated accounts to work today</h2>
           </div>
           <p>Ranked by revenue at risk so a customer-success team can act immediately.</p>
         </div>
@@ -105,6 +161,28 @@
             </thead>
             <tbody id="customer-table"></tbody>
           </table>
+        </div>
+      </section>
+
+      <section id="score" class="panel split">
+        <div>
+          <p class="eyebrow">Single account check</p>
+          <h2>Score one customer</h2>
+          <p>
+            Use this for quick what-if checks. For real work, upload a customer file above.
+          </p>
+          <form id="score-form" class="form"></form>
+        </div>
+        <div class="score-result" aria-live="polite">
+          <span class="badge" id="risk-band">Waiting</span>
+          <h3 id="score-probability">Select customer inputs</h3>
+          <p id="score-action">The recommended action will appear here.</p>
+          <dl class="metric-list">
+            <div><dt>Revenue at risk</dt><dd id="score-rar">-</dd></div>
+            <div><dt>Expected net value</dt><dd id="score-net">-</dd></div>
+          </dl>
+          <h4>Top risk drivers</h4>
+          <ol id="driver-list" class="drivers"></ol>
         </div>
       </section>
 
@@ -134,7 +212,7 @@
         </div>
         <div>
           <p class="eyebrow">API</p>
-          <h2>Lightweight scoring endpoint</h2>
+          <h2>Lightweight scoring endpoints</h2>
           <pre><code>POST /api/score
 {
   "features": {
@@ -142,6 +220,13 @@
     "monthly_charges": 95,
     "contract": "Month-to-month"
   }
+}
+
+POST /api/batch-score
+{
+  "records": [
+    { "customer_id": "C-1001", "tenure": 12, ... }
+  ]
 }</code></pre>
         </div>
       </section>

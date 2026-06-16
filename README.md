@@ -2,7 +2,7 @@
 
 [![ML Pipeline CI](https://github.com/janakjocee/End-to-End-ML-Pipeline/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/janakjocee/End-to-End-ML-Pipeline/actions/workflows/ci-cd.yml)
 
-A practical end-to-end ML product for customer-success teams. It trains a churn model, exports a lightweight deployment bundle, scores customer accounts, estimates revenue at risk, recommends retention actions, and serves a Vercel-ready command center.
+A practical end-to-end ML product for customer-success teams. It trains a churn model, exports a lightweight deployment bundle, scores uploaded customer files, estimates revenue at risk, recommends retention actions, and serves a Vercel-ready command center.
 
 This repository now has three practical layers:
 
@@ -30,7 +30,8 @@ flowchart LR
 
 | Capability | Why it matters |
 |---|---|
-| Interactive scoring | Customer-success users can test account scenarios without notebooks. |
+| CSV upload scoring | Customer-success users can upload a customer file and get a prioritized action queue. |
+| Interactive scoring | Users can still test one account scenario without notebooks. |
 | Revenue at risk | The model output is tied to a business decision, not just a probability. |
 | Next-best action | Each score maps to an intervention, estimated cost, and expected lift. |
 | Explainability | Top risk drivers show what moved the score. |
@@ -92,6 +93,7 @@ artifacts/demo/business_summary.json  # portfolio value summary
 docs/assets/demo-pipeline-results.png # regenerated README result image
 docs/assets/data-drift-comparison.png # regenerated drift scenario image
 public/*.json                         # web app data artifacts
+public/sample-customers.csv           # upload-ready example customer file
 ```
 
 Run individual commands without `make`:
@@ -111,7 +113,7 @@ npm run build
 npx vercel dev
 ```
 
-Open the local URL that Vercel prints. The dashboard loads from `public/` and the score endpoint is available at `POST /api/score`.
+Open the local URL that Vercel prints. The dashboard loads from `public/`, supports CSV upload in the browser, and exposes scoring endpoints at `POST /api/score` and `POST /api/batch-score`.
 
 Example API request:
 
@@ -132,9 +134,31 @@ curl -X POST http://localhost:3000/api/score \
   }'
 ```
 
+Batch API request:
+
+```bash
+curl -X POST http://localhost:3000/api/batch-score \
+  -H "Content-Type: application/json" \
+  -d '{
+    "records": [
+      {
+        "customer_id": "C-1001",
+        "tenure": 12,
+        "monthly_charges": 95,
+        "total_charges": 1140,
+        "contract": "Month-to-month",
+        "payment_method": "Electronic check",
+        "internet_service": "Fiber optic",
+        "online_security": "No",
+        "tech_support": "No"
+      }
+    ]
+  }'
+```
+
 ## Deploy To Vercel
 
-The repository includes `vercel.json`, `package.json`, `public/`, `api/score.js`, and a Build Output API packager for local package inspection.
+The repository includes `vercel.json`, `package.json`, `public/`, `api/score.js`, and `api/batch-score.js`.
 
 ```bash
 npm run build
@@ -145,7 +169,7 @@ Vercel should use:
 
 - build command: `npm run build`
 - static assets: `public/`
-- serverless function: `api/score.js`
+- serverless functions: `api/score.js` and `api/batch-score.js`
 
 If your Vercel project is connected to GitHub, pushing `main` will trigger deployment automatically.
 
@@ -206,7 +230,7 @@ Compose creates the required MinIO buckets and mounts the included PostgreSQL an
 |---|---|
 | `public/` | Vercel-ready customer churn command center |
 | `api/score.js` | Lightweight serverless scoring endpoint |
-| `scripts/build_vercel_output.mjs` | Deterministic Vercel package builder |
+| `api/batch-score.js` | Serverless batch scoring endpoint |
 | `scripts/run_demo_pipeline.py` | Verified local end-to-end workflow |
 | `shared/churn_business.py` | Pure-Python scoring, action, and revenue logic |
 | `scripts/generate_sample_data.py` | Deterministic normal and drift data generator |
