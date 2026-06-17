@@ -22,6 +22,15 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-test.txt ruff
 
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install web dependencies
+        run: npm ci
+
       - name: Compile Python sources
         run: python -m compileall -q .
 
