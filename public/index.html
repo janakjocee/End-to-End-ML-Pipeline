@@ -182,14 +182,15 @@
       <section id="history" class="panel">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Database-style local workflow</p>
+            <p class="eyebrow">Database-backed workflow</p>
             <h2>Saved batches and action outcomes</h2>
           </div>
           <p>
-            Uploads are stored in this browser only. This protects demo customer data
-            while still showing scoring history, action status, and before/after outcomes.
+            When Postgres is configured, uploaded batches and outcomes are stored server-side.
+            Without database credentials, the app safely falls back to browser-only demo history.
           </p>
         </div>
+        <div id="database-status" class="database-status">Checking persistence mode...</div>
         <div class="upload-actions">
           <button id="clear-history" class="button secondary" type="button">Clear local history</button>
         </div>

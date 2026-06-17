@@ -20,6 +20,7 @@ const mappingReport = document.querySelector("#mapping-report");
 const monitoringReport = document.querySelector("#monitoring-report");
 const historyTable = document.querySelector("#history-table");
 const clearHistoryButton = document.querySelector("#clear-history");
+const databaseStatus = document.querySelector("#database-status");
 const state = {
   bundle: null,
   customers: [],
@@ -28,6 +29,11 @@ const state = {
   rawRecords: [],
   inference: null,
   history: [],
+  persistence: {
+    mode: "browser",
+    connected: false,
+    message: "Browser-only history is active.",
+  },
 };
 
 const historyKey = "churn-command-center:batches";
@@ -474,12 +480,97 @@ function renderUploadSummary(rows) {
   document.querySelector("#upload-net").textContent = money.format(summary.expected_net_value);
 }
 
-function loadHistory() {
+function renderPersistenceStatus() {
+  const status = state.persistence;
+  databaseStatus.className = `database-status ${status.connected ? "connected" : "local"}`;
+  databaseStatus.textContent = status.connected
+    ? `Database connected: ${status.message} Workspace ${status.workspace_id || "demo-workspace"} has ${status.batches ?? state.history.length} saved batches.`
+    : `${status.message} Connect DATABASE_URL to enable server-side batch history, audit logs, and team-ready persistence.`;
+}
+
+async function refreshDatabaseStatus() {
+  try {
+    const response = await fetch("/api/database-status");
+    const status = await response.json();
+    state.persistence = status;
+  } catch (error) {
+    state.persistence = {
+      mode: "browser",
+      connected: false,
+      message: `Database status unavailable: ${error.message}. Browser-only history is active.`,
+    };
+  }
+  renderPersistenceStatus();
+}
+
+async function loadHistory() {
   state.history = JSON.parse(localStorage.getItem(historyKey) || "[]");
+  try {
+    const response = await fetch("/api/batches");
+    const payload = await response.json();
+    if (payload.connected && Array.isArray(payload.batches)) {
+      state.persistence = {
+        ...state.persistence,
+        mode: "database",
+        connected: true,
+        message: "Postgres persistence is active.",
+        batches: payload.batches.length,
+      };
+      state.history = payload.batches;
+    }
+  } catch (error) {
+    state.persistence = {
+      mode: "browser",
+      connected: false,
+      message: `Saved batch API unavailable: ${error.message}. Browser-only history is active.`,
+    };
+  }
+  renderPersistenceStatus();
 }
 
 function persistHistory() {
   localStorage.setItem(historyKey, JSON.stringify(state.history.slice(0, 15)));
+}
+
+async function persistBatchToDatabase(batch) {
+  if (!state.persistence.connected) return;
+  try {
+    const response = await fetch("/api/batches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(batch),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.connected) throw new Error(payload.error || payload.message || "Database save failed.");
+    state.persistence.message = "Postgres persistence is active.";
+  } catch (error) {
+    state.persistence = {
+      mode: "browser",
+      connected: false,
+      message: `Database save failed: ${error.message}. Browser-only history remains active.`,
+    };
+  }
+  renderPersistenceStatus();
+}
+
+async function updateBatchOutcomeInDatabase(batch) {
+  if (!state.persistence.connected) return;
+  try {
+    const response = await fetch("/api/batches", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: batch.id, outcome: batch.outcome }),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.connected) throw new Error(payload.error || payload.message || "Outcome update failed.");
+  } catch (error) {
+    state.persistence = {
+      mode: "browser",
+      connected: false,
+      message: `Database outcome update failed: ${error.message}. Browser-only history remains active.`,
+    };
+    renderPersistenceStatus();
+  }
 }
 
 function saveCurrentBatch(label) {
@@ -490,12 +581,19 @@ function saveCurrentBatch(label) {
     label,
     created_at: new Date().toISOString(),
     summary,
+    row_count: state.uploaded.length,
+    mapping: state.inference || {},
+    drift_report: {
+      high_risk_share: summary.high_risk_share,
+      risk_counts: summary.risk_counts,
+    },
     rows: state.uploaded.slice(0, 100),
     outcome: "Pending review",
   };
   state.history = [batch, ...state.history].slice(0, 15);
   persistHistory();
   renderHistory();
+  persistBatchToDatabase(batch);
 }
 
 function renderHistory() {
@@ -524,6 +622,7 @@ function renderHistory() {
       const batch = state.history.find((item) => item.id === select.dataset.historyOutcome);
       if (batch) batch.outcome = select.value;
       persistHistory();
+      if (batch) updateBatchOutcomeInDatabase(batch);
     });
   });
 }
@@ -790,7 +889,8 @@ async function load() {
   renderForm();
   renderTable();
   renderLiveCharts(state.customers, "generated demo data");
-  loadHistory();
+  await refreshDatabaseStatus();
+  await loadHistory();
   renderHistory();
   updateScore();
   upload.addEventListener("change", handleUpload);

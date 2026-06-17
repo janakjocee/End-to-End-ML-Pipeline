@@ -11,6 +11,14 @@
       "use": "@vercel/node"
     },
     {
+      "src": "api/batches.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/database-status.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "public/**",
       "use": "@vercel/static"
     }
@@ -23,6 +31,14 @@
     {
       "src": "/api/batch-score",
       "dest": "/api/batch-score.js"
+    },
+    {
+      "src": "/api/batches",
+      "dest": "/api/batches.js"
+    },
+    {
+      "src": "/api/database-status",
+      "dest": "/api/database-status.js"
     },
     {
       "src": "/(.*)",

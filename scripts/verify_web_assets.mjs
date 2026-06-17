@@ -20,7 +20,12 @@ const required = [
   "public/model-selection-report.png",
   "api/score.js",
   "api/batch-score.js",
+  "api/batches.js",
+  "api/database-status.js",
+  "api/lib/db.js",
+  "api/lib/schema.js",
   "api/scoring.js",
+  "database/schema.sql",
 ];
 
 for (const relative of required) {
@@ -47,6 +52,8 @@ if (summary.revenue_at_risk <= 0 || summary.customers_scored !== customers.lengt
 }
 
 const { scoreCustomer, scoreBatch } = await import("../api/scoring.js");
+const batchesApi = await import("../api/batches.js");
+const databaseStatusApi = await import("../api/database-status.js");
 const sample = {
   tenure: 12,
   monthly_charges: 95,
@@ -89,4 +96,37 @@ if (
   throw new Error("Flexible column mapping smoke test failed.");
 }
 
-console.log(`Verified web app assets, dynamic mapping, single scoring, and batch scoring for ${customers.length} demo customers.`);
+function mockResponse() {
+  return {
+    statusCode: 200,
+    headers: {},
+    payload: null,
+    setHeader(key, value) {
+      this.headers[key] = value;
+    },
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+      return this;
+    },
+  };
+}
+
+const statusResponse = mockResponse();
+await databaseStatusApi.default({ method: "GET", headers: {} }, statusResponse);
+if (statusResponse.statusCode !== 200 || !["browser", "database"].includes(statusResponse.payload.mode)) {
+  throw new Error("Database status API smoke test failed.");
+}
+
+const batchesResponse = mockResponse();
+await batchesApi.default({ method: "GET", headers: {} }, batchesResponse);
+if (batchesResponse.statusCode !== 200 || !Array.isArray(batchesResponse.payload.batches)) {
+  throw new Error("Batches API browser-fallback smoke test failed.");
+}
+
+console.log(
+  `Verified web app assets, dynamic mapping, persistence APIs, single scoring, and batch scoring for ${customers.length} demo customers.`,
+);

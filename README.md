@@ -32,7 +32,7 @@ The deployed dashboard presents the project as a usable customer-success workflo
 
 ![Customer Churn Command Center dashboard](docs/assets/app-dashboard.png)
 
-The upload workflow supports Telco-style CSV files, dynamic column mapping, live uploaded-data charts, monitoring warnings, saved local history, action status tracking, and CRM/task export.
+The upload workflow supports Telco-style CSV files, dynamic column mapping, live uploaded-data charts, monitoring warnings, database-backed batch history when Postgres is configured, browser fallback history for the public demo, action status tracking, and CRM/task export.
 
 ![CSV upload, mapping, live charts, monitoring, and action queue](docs/assets/app-upload-workflow.png)
 
@@ -41,6 +41,7 @@ The upload workflow supports Telco-style CSV files, dynamic column mapping, live
 | Capability | Why it matters |
 |---|---|
 | Dynamic CSV upload scoring | Customer-success users can upload imperfect customer files, auto-map columns, and get a prioritized action queue. |
+| Optional Postgres persistence | Production deployments can save batches, predictions, outcomes, drift reports, model versions, and audit logs. |
 | Interactive scoring | Users can still test one account scenario without notebooks. |
 | Revenue at risk | The model output is tied to a business decision, not just a probability. |
 | Next-best action | Each score maps to an intervention, estimated cost, and expected lift. |
@@ -142,7 +143,8 @@ The CSV uploader does not require perfect model column names. It auto-detects co
 Browser workflow features:
 
 - editable column mapping UI
-- local saved upload history
+- Postgres-backed saved upload history when `DATABASE_URL` is configured
+- browser-only saved upload history when running as a public demo
 - action status and outcome tracking
 - input/prediction drift warnings
 - live charts from the current demo or uploaded dataset
@@ -150,6 +152,14 @@ Browser workflow features:
 - CRM/task-board CSV export
 - Web Worker scoring for larger browser uploads
 - privacy-first behavior: uploaded CSV rows stay in the browser unless the API is called directly
+
+Database workflow features:
+
+- `GET /api/database-status` reports whether Postgres persistence is active
+- `GET /api/batches` lists saved batches for the workspace
+- `POST /api/batches` stores scored rows, mapping metadata, drift summary, and audit events
+- `PATCH /api/batches` updates campaign outcome status
+- `database/schema.sql` defines production-ready tables for workspaces, batches, predictions, action outcomes, model versions, drift reports, and audit logs
 
 Example API request:
 
@@ -194,7 +204,7 @@ curl -X POST http://localhost:3000/api/batch-score \
 
 ## Deploy To Vercel
 
-The repository includes `vercel.json`, `package.json`, `public/`, `api/score.js`, and `api/batch-score.js`.
+The repository includes `vercel.json`, `package.json`, `public/`, scoring APIs, database persistence APIs, and `database/schema.sql`.
 
 ```bash
 npm run build
@@ -205,7 +215,15 @@ Vercel should use:
 
 - build command: `npm run build`
 - static assets: `public/`
-- serverless functions: `api/score.js` and `api/batch-score.js`
+- serverless functions: `api/score.js`, `api/batch-score.js`, `api/batches.js`, and `api/database-status.js`
+
+For database-backed production mode, connect a managed Postgres database such as Supabase or Neon and set:
+
+```bash
+DATABASE_URL=postgres://...
+```
+
+Without `DATABASE_URL`, the app stays fully usable in browser-only demo mode and avoids storing public visitor uploads on a server.
 
 If your Vercel project is connected to GitHub, pushing `main` will trigger deployment automatically.
 
@@ -305,7 +323,7 @@ npm run build
 
 ## Current Scope
 
-The web app is practical for a portfolio/demo and can be hosted. It includes dynamic CSV upload, editable mapping, uploaded-data charts, local batch history, action tracking, drift warnings, CRM/task export, model selection evidence, and deployed APIs. Before using it for real customer decisions, add organization authentication, managed database persistence, consent/compliance checks, live CRM API credentials, post-intervention outcome ingestion, fairness review on real protected classes, model recalibration, and production observability.
+The web app is practical for a portfolio/demo and can be hosted. It includes dynamic CSV upload, editable mapping, uploaded-data charts, browser fallback history, optional Postgres batch persistence, action tracking, drift warnings, CRM/task export, model selection evidence, and deployed APIs. Before using it for real customer decisions, add organization authentication, row-level tenant policies, consent/compliance checks, live CRM API credentials, post-intervention outcome ingestion from real systems, fairness review on real protected classes, model recalibration, and production observability.
 
 ## License
 
