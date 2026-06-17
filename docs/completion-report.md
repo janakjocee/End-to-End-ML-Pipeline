@@ -10,12 +10,13 @@
 - Deployed dashboard with dynamic CSV upload, editable column mapping, Telco-style sample support, uploaded-data charts, optional Postgres batch history, browser fallback history, action status tracking, outcome tracking, drift warnings, Web Worker scoring, scored CSV export, and CRM/task CSV export.
 - Serverless APIs for single-customer scoring, batch scoring, database status, and persisted batch workflow.
 - Database schema for workspaces, batches, predictions, action outcomes, model versions, drift reports, and audit logs.
+- Workspace controls and optional workflow API-token protection for self-hosted persistence APIs.
 - Governance docs: model card, data card, system design, deployment reference, and this completion report.
 - CI checks for compile, lint, tests, demo generation, web assets, scoring smoke tests, and Compose configuration.
 
 ## Production-Like Boundaries
 
-The hosted public demo is intentionally privacy-first: uploaded CSV files are processed in-browser and saved to browser storage unless `DATABASE_URL` is configured and the persistence APIs are active. The repository now includes the Postgres schema and serverless persistence routes needed for a managed database deployment.
+The hosted public demo is intentionally privacy-first: uploaded CSV files are processed in-browser and saved to browser storage unless `DATABASE_URL` is configured and the persistence APIs are active. The repository now includes the Postgres schema, serverless persistence routes, workspace controls, and optional `WORKFLOW_API_KEY` guard needed for a managed database deployment.
 
 Real production use should add:
 

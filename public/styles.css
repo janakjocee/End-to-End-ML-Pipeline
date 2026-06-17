@@ -319,6 +319,22 @@ footer,
   margin: 1rem 0;
 }
 
+.access-grid {
+  align-items: end;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 1rem;
+  padding: 1rem;
+}
+
+.access-grid .button {
+  text-align: center;
+}
+
 .insight-panel {
   margin-top: 1.25rem;
 }
@@ -554,6 +570,7 @@ footer {
   .form,
   .upload-grid,
   .mapping-editor,
+  .access-grid,
   .chart-grid {
     grid-template-columns: 1fr;
   }

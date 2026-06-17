@@ -42,6 +42,7 @@ The upload workflow supports Telco-style CSV files, dynamic column mapping, live
 |---|---|
 | Dynamic CSV upload scoring | Customer-success users can upload imperfect customer files, auto-map columns, and get a prioritized action queue. |
 | Optional Postgres persistence | Production deployments can save batches, predictions, outcomes, drift reports, model versions, and audit logs. |
+| Workspace access controls | Self-hosted deployments can separate workspaces and protect persistence APIs with a server-side workflow token. |
 | Interactive scoring | Users can still test one account scenario without notebooks. |
 | Revenue at risk | The model output is tied to a business decision, not just a probability. |
 | Next-best action | Each score maps to an intervention, estimated cost, and expected lift. |
@@ -145,6 +146,7 @@ Browser workflow features:
 - editable column mapping UI
 - Postgres-backed saved upload history when `DATABASE_URL` is configured
 - browser-only saved upload history when running as a public demo
+- workspace ID, actor email, and optional workflow API token controls
 - action status and outcome tracking
 - input/prediction drift warnings
 - live charts from the current demo or uploaded dataset
@@ -221,9 +223,17 @@ For database-backed production mode, connect a managed Postgres database such as
 
 ```bash
 DATABASE_URL=postgres://...
+DEFAULT_WORKSPACE_ID=demo-workspace
 ```
 
-Without `DATABASE_URL`, the app stays fully usable in browser-only demo mode and avoids storing public visitor uploads on a server.
+To protect persisted workflow APIs in a self-hosted deployment, also set:
+
+```bash
+WORKFLOW_API_KEY=replace-with-a-long-random-secret
+REQUIRE_WORKFLOW_AUTH=true
+```
+
+The browser's "Saved batches" section includes workspace, actor, and workflow-token controls. The token is stored only in that user's browser storage and sent as a bearer token to the persistence APIs. Without `DATABASE_URL`, the app stays fully usable in browser-only demo mode and avoids storing public visitor uploads on a server.
 
 If your Vercel project is connected to GitHub, pushing `main` will trigger deployment automatically.
 
@@ -323,7 +333,7 @@ npm run build
 
 ## Current Scope
 
-The web app is practical for a portfolio/demo and can be hosted. It includes dynamic CSV upload, editable mapping, uploaded-data charts, browser fallback history, optional Postgres batch persistence, action tracking, drift warnings, CRM/task export, model selection evidence, and deployed APIs. Before using it for real customer decisions, add organization authentication, row-level tenant policies, consent/compliance checks, live CRM API credentials, post-intervention outcome ingestion from real systems, fairness review on real protected classes, model recalibration, and production observability.
+The web app is practical for a portfolio/demo and can be hosted. It includes dynamic CSV upload, editable mapping, uploaded-data charts, browser fallback history, optional Postgres batch persistence, workspace controls, optional API-token protection, action tracking, drift warnings, CRM/task export, model selection evidence, and deployed APIs. Before using it for real customer decisions, add organization authentication through a provider such as Supabase Auth, Clerk, or Auth.js; row-level tenant policies; consent/compliance checks; live CRM API credentials; post-intervention outcome ingestion from real systems; fairness review on real protected classes; model recalibration; and production observability.
 
 ## License
 

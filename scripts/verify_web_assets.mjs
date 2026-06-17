@@ -22,6 +22,7 @@ const required = [
   "api/batch-score.js",
   "api/batches.js",
   "api/database-status.js",
+  "api/lib/auth.js",
   "api/lib/db.js",
   "api/lib/schema.js",
   "api/scoring.js",
@@ -54,6 +55,7 @@ if (summary.revenue_at_risk <= 0 || summary.customers_scored !== customers.lengt
 const { scoreCustomer, scoreBatch } = await import("../api/scoring.js");
 const batchesApi = await import("../api/batches.js");
 const databaseStatusApi = await import("../api/database-status.js");
+const authModule = await import("../api/lib/auth.js");
 const sample = {
   tenure: 12,
   monthly_charges: 95,
@@ -126,6 +128,20 @@ await batchesApi.default({ method: "GET", headers: {} }, batchesResponse);
 if (batchesResponse.statusCode !== 200 || !Array.isArray(batchesResponse.payload.batches)) {
   throw new Error("Batches API browser-fallback smoke test failed.");
 }
+
+process.env.WORKFLOW_API_KEY = "test-token";
+try {
+  authModule.default.getAuthContext({ headers: { authorization: "Bearer test-token", "x-workspace-id": "qa" } });
+} catch (error) {
+  throw new Error(`Workflow auth accepted-token smoke test failed: ${error.message}`);
+}
+try {
+  authModule.default.getAuthContext({ headers: { authorization: "Bearer wrong-token" } });
+  throw new Error("Workflow auth rejected-token smoke test failed.");
+} catch (error) {
+  if (error.message === "Workflow auth rejected-token smoke test failed.") throw error;
+}
+delete process.env.WORKFLOW_API_KEY;
 
 console.log(
   `Verified web app assets, dynamic mapping, persistence APIs, single scoring, and batch scoring for ${customers.length} demo customers.`,

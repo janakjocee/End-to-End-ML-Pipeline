@@ -21,6 +21,10 @@ const monitoringReport = document.querySelector("#monitoring-report");
 const historyTable = document.querySelector("#history-table");
 const clearHistoryButton = document.querySelector("#clear-history");
 const databaseStatus = document.querySelector("#database-status");
+const accessWorkspace = document.querySelector("#access-workspace");
+const accessActor = document.querySelector("#access-actor");
+const accessToken = document.querySelector("#access-token");
+const saveAccessButton = document.querySelector("#save-access");
 const state = {
   bundle: null,
   customers: [],
@@ -29,6 +33,11 @@ const state = {
   rawRecords: [],
   inference: null,
   history: [],
+  access: {
+    workspace_id: "demo-workspace",
+    actor: "demo-user@example.com",
+    token: "",
+  },
   persistence: {
     mode: "browser",
     connected: false,
@@ -37,6 +46,7 @@ const state = {
 };
 
 const historyKey = "churn-command-center:batches";
+const accessKey = "churn-command-center:access";
 
 const columnAliases = {
   customer_id: ["customerid", "customer", "id", "accountid", "accountnumber", "clientid", "subscriberid"],
@@ -484,13 +494,42 @@ function renderPersistenceStatus() {
   const status = state.persistence;
   databaseStatus.className = `database-status ${status.connected ? "connected" : "local"}`;
   databaseStatus.textContent = status.connected
-    ? `Database connected: ${status.message} Workspace ${status.workspace_id || "demo-workspace"} has ${status.batches ?? state.history.length} saved batches.`
+    ? `Database connected: ${status.message} Workspace ${status.workspace_id || state.access.workspace_id} has ${status.batches ?? state.history.length} saved batches.`
     : `${status.message} Connect DATABASE_URL to enable server-side batch history, audit logs, and team-ready persistence.`;
+}
+
+function loadAccessControls() {
+  state.access = {
+    ...state.access,
+    ...JSON.parse(localStorage.getItem(accessKey) || "{}"),
+  };
+  accessWorkspace.value = state.access.workspace_id;
+  accessActor.value = state.access.actor;
+  accessToken.value = state.access.token;
+}
+
+function persistAccessControls() {
+  state.access = {
+    workspace_id: accessWorkspace.value.trim() || "demo-workspace",
+    actor: accessActor.value.trim() || "demo-user@example.com",
+    token: accessToken.value.trim(),
+  };
+  localStorage.setItem(accessKey, JSON.stringify(state.access));
+}
+
+function workflowHeaders(extra = {}) {
+  const headers = {
+    ...extra,
+    "X-User-Email": state.access.actor,
+    "X-Workspace-Id": state.access.workspace_id,
+  };
+  if (state.access.token) headers.Authorization = `Bearer ${state.access.token}`;
+  return headers;
 }
 
 async function refreshDatabaseStatus() {
   try {
-    const response = await fetch("/api/database-status");
+    const response = await fetch("/api/database-status", { headers: workflowHeaders() });
     const status = await response.json();
     state.persistence = status;
   } catch (error) {
@@ -506,7 +545,7 @@ async function refreshDatabaseStatus() {
 async function loadHistory() {
   state.history = JSON.parse(localStorage.getItem(historyKey) || "[]");
   try {
-    const response = await fetch("/api/batches");
+    const response = await fetch("/api/batches", { headers: workflowHeaders() });
     const payload = await response.json();
     if (payload.connected && Array.isArray(payload.batches)) {
       state.persistence = {
@@ -537,7 +576,7 @@ async function persistBatchToDatabase(batch) {
   try {
     const response = await fetch("/api/batches", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: workflowHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(batch),
     });
     const payload = await response.json();
@@ -558,7 +597,7 @@ async function updateBatchOutcomeInDatabase(batch) {
   try {
     const response = await fetch("/api/batches", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: workflowHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ id: batch.id, outcome: batch.outcome }),
     });
     const payload = await response.json();
@@ -889,6 +928,7 @@ async function load() {
   renderForm();
   renderTable();
   renderLiveCharts(state.customers, "generated demo data");
+  loadAccessControls();
   await refreshDatabaseStatus();
   await loadHistory();
   renderHistory();
@@ -899,6 +939,12 @@ async function load() {
   clearHistoryButton.addEventListener("click", () => {
     state.history = [];
     persistHistory();
+    renderHistory();
+  });
+  saveAccessButton.addEventListener("click", async () => {
+    persistAccessControls();
+    await refreshDatabaseStatus();
+    await loadHistory();
     renderHistory();
   });
   await maybeLoadDemoUpload();

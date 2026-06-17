@@ -1,12 +1,11 @@
 const {
   ensureWorkspace,
-  getActor,
-  getWorkspaceId,
   isDatabaseConfigured,
   query,
   transaction,
   writeAudit,
 } = require("./lib/db");
+const { getAuthContext, sendAuthError } = require("./lib/auth");
 const crypto = require("node:crypto");
 
 function unavailable(response) {
@@ -20,7 +19,8 @@ function unavailable(response) {
 
 async function listBatches(request, response) {
   if (!isDatabaseConfigured()) return unavailable(response);
-  const workspaceId = getWorkspaceId(request);
+  const auth = getAuthContext(request);
+  const workspaceId = auth.workspace_id;
   await ensureWorkspace(workspaceId);
   const result = await query(
     `
@@ -35,6 +35,8 @@ async function listBatches(request, response) {
   return response.status(200).json({
     mode: "database",
     connected: true,
+    auth_required: auth.auth_required,
+    workspace_id: workspaceId,
     batches: result.rows.map((row) => ({
       id: row.id,
       label: row.label,
@@ -52,8 +54,9 @@ async function listBatches(request, response) {
 
 async function createBatch(request, response) {
   if (!isDatabaseConfigured()) return unavailable(response);
-  const workspaceId = getWorkspaceId(request);
-  const actor = getActor(request);
+  const auth = getAuthContext(request);
+  const workspaceId = auth.workspace_id;
+  const actor = auth.actor;
   const body = request.body || {};
   const rows = Array.isArray(body.rows) ? body.rows.slice(0, 500) : [];
   if (!body.id || !body.label || !body.summary || !rows.length) {
@@ -119,13 +122,14 @@ async function createBatch(request, response) {
     metadata: { label: body.label, row_count: rows.length },
   });
 
-  return response.status(201).json({ mode: "database", connected: true, id: body.id });
+  return response.status(201).json({ mode: "database", connected: true, id: body.id, workspace_id: workspaceId });
 }
 
 async function updateBatch(request, response) {
   if (!isDatabaseConfigured()) return unavailable(response);
-  const workspaceId = getWorkspaceId(request);
-  const actor = getActor(request);
+  const auth = getAuthContext(request);
+  const workspaceId = auth.workspace_id;
+  const actor = auth.actor;
   const { id, outcome } = request.body || {};
   if (!id || !outcome) return response.status(400).json({ error: "Expected id and outcome." });
   await ensureWorkspace(workspaceId);
@@ -158,6 +162,7 @@ module.exports = async (request, response) => {
     response.setHeader("Allow", "GET, POST, PATCH");
     return response.status(405).json({ error: "Use GET, POST, or PATCH." });
   } catch (error) {
+    if (error.statusCode === 401) return sendAuthError(response, error);
     return response.status(500).json({
       mode: "browser",
       connected: false,

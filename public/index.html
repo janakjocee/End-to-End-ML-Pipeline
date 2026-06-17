@@ -190,6 +190,18 @@
             Without database credentials, the app safely falls back to browser-only demo history.
           </p>
         </div>
+        <div class="access-grid" aria-label="Persistence access controls">
+          <label>Workspace ID
+            <input id="access-workspace" type="text" value="demo-workspace" />
+          </label>
+          <label>Actor email
+            <input id="access-actor" type="email" value="demo-user@example.com" />
+          </label>
+          <label>Workflow API token
+            <input id="access-token" type="password" placeholder="Only needed when WORKFLOW_API_KEY is enabled" />
+          </label>
+          <button id="save-access" class="button secondary" type="button">Save access controls</button>
+        </div>
         <div id="database-status" class="database-status">Checking persistence mode...</div>
         <div class="upload-actions">
           <button id="clear-history" class="button secondary" type="button">Clear local history</button>

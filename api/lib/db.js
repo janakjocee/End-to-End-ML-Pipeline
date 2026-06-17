@@ -81,14 +81,6 @@ async function ensureWorkspace(workspaceId, name = "Demo workspace") {
   );
 }
 
-function getWorkspaceId(request) {
-  return request.headers["x-workspace-id"] || process.env.DEFAULT_WORKSPACE_ID || "demo-workspace";
-}
-
-function getActor(request) {
-  return request.headers["x-user-email"] || "demo-user";
-}
-
 async function writeAudit({ workspaceId, actor, action, entityType, entityId, metadata = {} }) {
   await query(
     `
@@ -102,8 +94,6 @@ async function writeAudit({ workspaceId, actor, action, entityType, entityId, me
 module.exports = {
   ensureSchema,
   ensureWorkspace,
-  getActor,
-  getWorkspaceId,
   isDatabaseConfigured,
   query,
   transaction,
