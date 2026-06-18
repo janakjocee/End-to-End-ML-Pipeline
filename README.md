@@ -32,6 +32,8 @@ The deployed dashboard presents the project as a usable customer-success workflo
 
 ![Customer Churn Command Center dashboard](docs/assets/app-dashboard.png)
 
+Live case study: [https://end-to-end-ml-pipeline.vercel.app/case-study.html](https://end-to-end-ml-pipeline.vercel.app/case-study.html)
+
 The upload workflow supports Telco-style CSV files, dynamic column mapping, live uploaded-data charts, monitoring warnings, database-backed batch history when Postgres is configured, browser fallback history for the public demo, action status tracking, and CRM/task export.
 
 ![CSV upload, mapping, live charts, monitoring, and action queue](docs/assets/app-upload-workflow.png)

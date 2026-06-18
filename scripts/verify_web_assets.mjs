@@ -4,6 +4,7 @@ import path from "node:path";
 const root = process.cwd();
 const required = [
   "public/index.html",
+  "public/case-study.html",
   "public/app.js",
   "public/styles.css",
   "public/model_bundle.json",

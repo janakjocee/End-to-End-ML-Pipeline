@@ -36,6 +36,10 @@ a {
   padding: 1.25rem clamp(1rem, 4vw, 4rem) 4rem;
 }
 
+.compact-hero {
+  padding-bottom: 2rem;
+}
+
 .nav {
   display: flex;
   align-items: center;
@@ -345,6 +349,39 @@ footer,
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.showcase-grid,
+.timeline {
+  display: grid;
+  gap: 1rem;
+}
+
+.showcase-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.showcase-grid article,
+.timeline div {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 1.1rem;
+  padding: 1rem;
+}
+
+.showcase-grid h3 {
+  font-size: 1.4rem;
+  margin-bottom: 0.8rem;
+}
+
+.timeline div {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: 10rem 1fr;
+}
+
+.timeline span {
+  color: var(--muted);
+}
+
 .live-chart-card {
   background: var(--panel-2);
   border: 1px solid var(--line);
@@ -571,6 +608,8 @@ footer {
   .upload-grid,
   .mapping-editor,
   .access-grid,
+  .showcase-grid,
+  .timeline div,
   .chart-grid {
     grid-template-columns: 1fr;
   }

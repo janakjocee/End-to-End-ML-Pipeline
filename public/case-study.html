@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Case study for the Customer Churn Command Center end-to-end ML pipeline."
+    />
+    <meta property="og:title" content="Customer Churn Command Center Case Study" />
+    <meta
+      property="og:description"
+      content="A practical end-to-end churn ML project: training pipeline, deployed scoring APIs, dynamic CSV upload, monitoring, business actions, and production persistence foundations."
+    />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://end-to-end-ml-pipeline.vercel.app/case-study.html" />
+    <meta property="og:image" content="https://end-to-end-ml-pipeline.vercel.app/model-selection-report.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>Case Study | Customer Churn Command Center</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="hero compact-hero">
+      <nav class="nav">
+        <span class="logo">Churn Command Center</span>
+        <a href="/">Live app</a>
+        <a href="https://github.com/janakjocee/End-to-End-ML-Pipeline">GitHub</a>
+      </nav>
+      <section>
+        <p class="eyebrow">End-to-end ML case study</p>
+        <h1>From churn model to retention operations workflow.</h1>
+        <p class="lede">
+          I built a deployed ML product that scores customer churn risk, explains drivers,
+          estimates revenue at risk, recommends retention actions, and supports practical
+          batch workflows from uploaded CSV files.
+        </p>
+        <div class="hero-actions">
+          <a class="button primary" href="/">Open live demo</a>
+          <a class="button secondary" href="/?demo=telco">Open with Telco sample</a>
+          <a class="button secondary" href="https://github.com/janakjocee/End-to-End-ML-Pipeline">View source</a>
+        </div>
+      </section>
+    </header>
+
+    <main>
+      <section class="cards" aria-label="Project highlights">
+        <article class="card">
+          <span>Model ROC-AUC</span>
+          <strong>0.746</strong>
+        </article>
+        <article class="card">
+          <span>Demo accounts scored</span>
+          <strong>250</strong>
+        </article>
+        <article class="card">
+          <span>Revenue at risk</span>
+          <strong>$162K</strong>
+        </article>
+        <article class="card">
+          <span>CI + deployment</span>
+          <strong>Live</strong>
+        </article>
+      </section>
+
+      <section class="panel split">
+        <div>
+          <p class="eyebrow">Problem</p>
+          <h2>Churn predictions are only useful when teams can act on them.</h2>
+        </div>
+        <p>
+          Instead of stopping at a notebook metric, this project turns model output into a
+          customer-success queue: who is at risk, why they are at risk, how much revenue is
+          exposed, and which retention action should happen next.
+        </p>
+      </section>
+
+      <section class="panel">
+        <p class="eyebrow">What I built</p>
+        <div class="showcase-grid">
+          <article>
+            <h3>ML pipeline</h3>
+            <p>Data generation, preprocessing, training, model comparison, threshold tuning, drift scenario, and deployable JSON model bundle.</p>
+          </article>
+          <article>
+            <h3>Product app</h3>
+            <p>CSV upload, dynamic column mapping, live charts, scoring table, top risk drivers, action recommendations, and CRM/task export.</p>
+          </article>
+          <article>
+            <h3>MLOps foundation</h3>
+            <p>CI, Vercel deployment, serverless scoring APIs, Postgres-ready workflow schema, audit logs, model version tables, and optional API-token protection.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel">
+        <p class="eyebrow">Architecture</p>
+        <div class="timeline">
+          <div><strong>1. Train</strong><span>Generate or load customer records, preprocess fields, train and compare models.</span></div>
+          <div><strong>2. Export</strong><span>Save a lightweight scoring bundle for Vercel serverless usage.</span></div>
+          <div><strong>3. Score</strong><span>Score individual accounts or uploaded CSV batches with flexible column mapping.</span></div>
+          <div><strong>4. Act</strong><span>Rank customers by revenue at risk and generate recommended retention actions.</span></div>
+          <div><strong>5. Govern</strong><span>Track model metrics, drift signals, batches, outcomes, and audit-ready workflow state.</span></div>
+        </div>
+      </section>
+
+      <section class="panel split">
+        <div>
+          <p class="eyebrow">Practicality</p>
+          <h2>Portfolio-ready now, production-ready foundation next.</h2>
+        </div>
+        <p>
+          The public demo runs safely in browser-first mode. For production, the repository
+          already includes Postgres persistence APIs and schema; connecting a managed database
+          through <code>DATABASE_URL</code> activates server-side saved batches and audit logs.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      Built by Janak Jocee · <a href="/">Live demo</a> ·
+      <a href="https://github.com/janakjocee/End-to-End-ML-Pipeline">GitHub repository</a>
+    </footer>
+  </body>
+</html>
