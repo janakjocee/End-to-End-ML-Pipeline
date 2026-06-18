@@ -19,6 +19,7 @@ const required = [
   "public/demo-pipeline-results.png",
   "public/data-drift-comparison.png",
   "public/model-selection-report.png",
+  "public/og-image.png",
   "api/score.js",
   "api/batch-score.js",
   "api/batches.js",
